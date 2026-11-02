@@ -200,6 +200,9 @@ dialog legend,.lg{font:500 var(--t-1)/1.2 var(--mono);letter-spacing:.08em;text-
   header,#login,#strip,#robot,#secure,#mapsec,#findsec,#devsec,#leavesec,#compsec,#alsec,#consec,footer,.noprint,.toast{display:none!important}
   .wrap>#app{display:block!important}
   .pr-only{display:block}
+  body.rp #app>section:not(#secrepsec),body.rp #app>.strip{display:none!important}
+  body.rp #secrepsec{display:block!important}
+  #secrepsec .btn{display:none}
   .tablewrap{max-height:none!important;overflow:visible;border:0}
   table{min-width:0!important;font-size:12px}
   th{position:static}
@@ -286,8 +289,10 @@ footer a{color:var(--blue)}
 
     <section id="secure" class="secure" aria-labelledby="sech" style="margin-top:var(--s-8)"></section>
 
+    <section id="secrepsec" aria-labelledby="srh" style="margin-top:var(--s-8)" hidden></section>
+
     <section id="findsec" aria-labelledby="findh" style="margin-top:var(--s-8)">
-      <div class="head"><h2 id="findh">Findings</h2><span class="sub" id="findsub"></span></div>
+      <div class="head"><h2 id="findh">Findings</h2><span class="sub" id="findsub"></span><button class="btn small" id="mkrep" type="button">Make security report</button></div>
       <div class="list" id="finds"></div>
       <details id="findacc" style="margin-top:var(--s-5)" hidden><summary class="sub" style="cursor:pointer;min-height:44px;display:flex;align-items:center">Accepted findings</summary><div class="list" id="findaccl"></div></details>
     </section>
@@ -688,6 +693,23 @@ function renderDevices(){
       ${devRow("Network neighbours",list(h.neighbors,d=>`<span class="mono">${esc(d.ip)}</span> <span class="sub mono">${esc(d.mac)} ${esc(d.dev)}</span>${d.random?' <span class="sub">(private address)</span>':""}`+nw(h.host,"lan",d.mac),"None seen"))}
       ${devRow("Wi-Fi",w?`${esc(w.ssid||DASH)}${w.signal_dbm!=null?` <span class="sub mono">${w.signal_dbm} dBm</span>`:""}${w.bssid?` <span class="sub mono">${esc(w.bssid)}</span>`:""}`:"Not reported")}
       ${devRow("Logged in",list(h.sessions,s=>`${esc(s.user)} <span class="sub">${esc(s.tty)}${s.from?" from "+esc(s.from):""}</span>`,"Nobody"))}</div></div>`}).join("")}
+
+const LVW={good:["nominal","In good shape"],review:["caution","Needs a look"],act:["fault","Act now"]};
+const PRW={high:"Do first",medium:"Do next",low:"When convenient"};
+async function makeReport(){
+  const r=await api("/api/v1/report/security?since="+RWIN),[c,w]=LVW[r.level],el=$("secrepsec");
+  el.innerHTML=`<div class="head"><h2 id="srh">Security report</h2><div class="tools noprint"><button class="btn small" id="sr-print" type="button">Print or save as PDF</button><button class="btn small" id="sr-md" type="button">Download text</button><button class="btn small" id="sr-close" type="button">Close</button></div></div>
+  <div class="secure" style="margin-top:var(--s-5)"><div class="top"><div style="min-width:0"><div class="sub">${esc(r.robot.name)}${r.robot.serial?" · "+esc(r.robot.serial):""} · ${new Date(r.generated*1000).toLocaleString()}</div>
+  <h3 style="margin:var(--s-3) 0">${esc(r.headline)}</h3></div><span class="chip ${c}"><i></i>${w}</span></div></div>
+  <h3 style="margin:var(--s-7) 0 var(--s-4)">What to do, in order</h3><div class="list">${r.recommendations.map(x=>`<div class="item" style="grid-template-columns:minmax(0,1fr)"><div><div class="name">${x.n}. ${esc(x.title)} <span class="sub">${PRW[x.priority]}</span></div><div class="meta"><span>Why: ${esc(x.why)}</span></div><div class="meta"><span>How: ${esc(x.how)}</span></div></div></div>`).join("")}</div>
+  ${r.sections.map(s=>{const[c2,w2]=LVW[s.level];return`<h3 style="margin:var(--s-7) 0 var(--s-4)">${esc(s.title)} <span class="chip ${c2}"><i></i>${w2}</span></h3><div class="list"><div class="item" style="grid-template-columns:minmax(0,1fr)"><div>${s.body.map(l=>`<p style="margin:var(--s-2) 0;overflow-wrap:anywhere">${esc(l)}</p>`).join("")}</div></div></div>`}).join("")}
+  <p class="sub" style="margin-top:var(--s-6)">Locations come from a registry database and are approximate. This report shows who the robot connected to, not what was sent.</p>`;
+  el.hidden=false;document.body.classList.add("rp");el.scrollIntoView({behavior:"smooth",block:"start"});
+  $("sr-print").onclick=()=>window.print();
+  $("sr-close").onclick=()=>{el.hidden=true;document.body.classList.remove("rp")};
+  $("sr-md").onclick=async()=>{try{const x=await fetch("/api/v1/report/security.md?since="+RWIN,{headers:{"Authorization":"Bearer "+TOKEN}});if(!x.ok)throw new Error("returned "+x.status);const u=URL.createObjectURL(await x.blob()),a=document.createElement("a");a.href=u;a.download="security-report.md";a.click();URL.revokeObjectURL(u)}catch(e){toast("Download failed: "+e.message)}};
+}
+$("mkrep").onclick=()=>makeReport().catch(e=>toast("Could not make the report: "+e.message));
 async function refresh(){
   try{
     const [s,c,g,sec,rob,rep,fnd,pst]=await Promise.all([api("/api/v1/summary"),api("/api/v1/categories"),api("/api/v1/geo/summary"),api("/api/v1/secure"),api("/api/v1/robot"),api("/api/v1/report/abroad?since="+RWIN),api("/api/v1/findings"),api("/api/v1/posture")]);

@@ -26,7 +26,7 @@ from .geodb import ATTRIBUTION, ATTRIBUTION_URL, GeoDB
 from .netscope import Scoper
 from .nftrender import DEFAULT_POLICY, header_info, render, validate_policy
 from .secure import SecureService
-from . import findings, robots
+from . import findings, robots, securityreport
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 2 * 1024 * 1024
@@ -246,6 +246,11 @@ class App:
         enf = {r["host"]: r for r in s.q("SELECT host, ts FROM enforcers")}
         items = findings.evaluate(posts, hosts, enf, now, self.accepted(), enforcer_stale_s=self.cfg["enforcer_stale_s"])
         return {"now": now, "findings": items, "open": sum(1 for f in items if not f["accepted"])}
+
+    def security_report(self, since: float = 86400) -> dict:
+        hosts = self.store.q("SELECT host, last_seen FROM hosts ORDER BY host")
+        return securityreport.build(self.robot(), self.findings()["findings"], self.secure.status(), self.secure.report(since), hosts,
+                                    time.time(), self.learning())
 
     def accept_finding(self, fid: str, accept: bool, actor: str) -> dict:
         fid = str(fid)[:200]
@@ -543,6 +548,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, a.robot())
             if u.path == "/api/v1/posture":
                 return self._send(200, a.posture_view())
+            if u.path in ("/api/v1/report/security", "/api/v1/report/security.md"):
+                rep = a.security_report(float(qs.get("since", ["86400"])[0]))
+                if u.path.endswith(".md"):
+                    return self._send(200, securityreport.markdown(rep), "text/markdown; charset=utf-8",
+                                      {"Content-Disposition": 'attachment; filename="security-report.md"'})
+                return self._send(200, rep)
             if u.path == "/api/v1/findings":
                 return self._send(200, a.findings())
             if u.path == "/api/v1/secure":

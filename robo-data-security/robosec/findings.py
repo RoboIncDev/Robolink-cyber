@@ -58,12 +58,12 @@ def evaluate(postures: dict[str, dict], hosts: list[dict], enforcers: dict[str, 
                 name, fix = RISKY_PORTS[r["port"]]
                 where = "every network this computer is on" if r["reach"] == "all" else "the Wi-Fi network"
                 out.append(_f(f"listen:{host}:{r['proto']}:{r['port']}", "caution", host, f"{host}: {name} (port {r['port']}) is open to {where}",
-                              f"Anyone who can reach {host} on {where} can try to connect." + (f" Program: {r['comm']}." if r.get("comm") else ""), fix))
+                              f"Anyone who can reach {host} can try to connect to it. It listens on {where}." + (f" Program: {r['comm']}." if r.get("comm") else ""), fix))
             else:
                 other.append(r)
         if other:
             names = ", ".join(sorted({f"{r['port']}/{r['proto']}" for r in other}, key=lambda s: int(s.split("/")[0])))
-            out.append(_f(f"ports:{host}", "info", host, f"{host}: {len({r['port'] for r in other})} more ports reach beyond this computer",
+            out.append(_f(f"ports:{host}", "info", host, f"{host}: {len({r['port'] for r in other})} more {'port reaches' if len({r['port'] for r in other}) == 1 else 'ports reach'} beyond this computer",
                           names, "Close the ones nothing needs, or limit them to the robot's own network."))
         bt = b.get("bluetooth")
         c = (bt or {}).get("controller") or {}

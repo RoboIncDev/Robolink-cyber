@@ -1,0 +1,32 @@
+[Unit]
+Description=robosec connection agent (read-only: samples /proc, reports to the robosec server)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=robosec
+Group=robosec
+WorkingDirectory=/opt/robosec
+Environment=PYTHONPATH=/opt/robosec
+ExecStart=/usr/bin/python3 -u -m robosec.agent --config /etc/robosec/agent.json
+Restart=always
+RestartSec=5
+# Never compete with the robot's control loops.
+Nice=10
+CPUQuota=15%
+MemoryMax=128M
+# PC1 only: keep off the cores the motion controller and HAL pin (5,6,7). Uncomment on PC1:
+#CPUAffinity=0 1 2 3
+# Read other users' /proc/<pid>/fd for per-process attribution, and nothing else.
+AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+StateDirectory=robosec
+ReadWritePaths=/var/lib/robosec
+
+[Install]
+WantedBy=multi-user.target

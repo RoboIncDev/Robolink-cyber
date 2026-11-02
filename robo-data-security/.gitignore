@@ -1,0 +1,6 @@
+.run/
+__pycache__/
+*.pyc
+phase0/
+*.db
+*.log

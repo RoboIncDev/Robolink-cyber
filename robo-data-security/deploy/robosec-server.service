@@ -1,0 +1,25 @@
+[Unit]
+Description=robosec server (collector, policy, dashboard)
+After=network-online.target
+
+[Service]
+Type=simple
+User=robosec
+Group=robosec
+WorkingDirectory=/opt/robosec
+Environment=PYTHONPATH=/opt/robosec
+ExecStart=/usr/bin/python3 -u -m robosec.server --config /etc/robosec/server.json
+Restart=always
+RestartSec=5
+Nice=10
+CPUQuota=25%
+MemoryMax=256M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+StateDirectory=robosec
+ReadWritePaths=/var/lib/robosec
+
+[Install]
+WantedBy=multi-user.target

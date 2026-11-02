@@ -1,0 +1,12 @@
+{
+  "listen": "127.0.0.1",
+  "port": 8750,
+  "db": "/var/lib/robosec/robosec.db",
+  "agent_token": "CHANGE-ME-agent-token",
+  "gateway_token": "CHANGE-ME-gateway-token",
+  "admin_token": "CHANGE-ME-admin-token",
+  "learning_hours": 24,
+  "categories": "/opt/robosec/config/categories.json",
+  "dashboard": "/opt/robosec/dashboard/index.html",
+  "networks": {}
+}

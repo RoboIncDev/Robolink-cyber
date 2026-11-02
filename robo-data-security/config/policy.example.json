@@ -1,0 +1,8 @@
+{
+  "mode": "observe",
+  "default_internet": "allow",
+  "categories": {"voice-and-audio": "allow", "robot-telemetry-export": "allow"},
+  "allow_cidrs": [],
+  "block_cidrs": [],
+  "always_allow": {"udp_ports": [53, 123], "tcp_ports": []}
+}

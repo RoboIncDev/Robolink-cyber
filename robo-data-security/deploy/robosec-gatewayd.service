@@ -1,0 +1,27 @@
+[Unit]
+Description=robosec gateway daemon (applies the egress ruleset to table inet robosec; fails open)
+After=network-online.target robosec-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/robosec
+Environment=PYTHONPATH=/opt/robosec
+ExecStart=/usr/bin/python3 -u -m robosec.gatewayd --config /etc/robosec/gatewayd.json
+# Stopping this service switches enforcement OFF (fail-open): our table is deleted.
+ExecStopPost=/usr/bin/python3 -m robosec.gatewayd --remove
+Restart=always
+RestartSec=5
+Nice=5
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+StateDirectory=robosec
+ReadWritePaths=/var/lib/robosec
+
+[Install]
+WantedBy=multi-user.target

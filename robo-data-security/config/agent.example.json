@@ -1,0 +1,10 @@
+{
+  "host": "pc2",
+  "server": "http://10.0.1.41:8750",
+  "token": "CHANGE-ME-agent-token",
+  "interval_s": 2.0,
+  "flush_s": 10.0,
+  "spool_dir": "/var/lib/robosec",
+  "nice": 10,
+  "networks": {}
+}

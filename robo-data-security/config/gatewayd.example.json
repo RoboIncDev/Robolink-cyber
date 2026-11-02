@@ -1,0 +1,9 @@
+{
+  "host": "pc2",
+  "server": "http://127.0.0.1:8750",
+  "token": "CHANGE-ME-gateway-token",
+  "poll_s": 15,
+  "flows_s": 30,
+  "verify_s": 10,
+  "state_file": "/var/lib/robosec/gateway.state"
+}

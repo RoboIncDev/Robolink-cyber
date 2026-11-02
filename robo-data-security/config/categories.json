@@ -1,0 +1,32 @@
+{
+  "_note": "FIRST GUESS. Names come from EM app names and processes seen on the Cadet (cloud_proxy, ota, mqtt_broker, aima-agent-app, robolink-voice-device, tailscaled, ...). The real executable paths are UNVERIFIED: run Phase 1, look at the 'unclassified' list, and edit this file. First match wins.",
+  "categories": [
+    {"id": "robot-vendor-cloud", "label": "Vendor cloud and remote support", "risk": "high",
+     "match": [{"exe_glob": "*cloud_proxy*"}, {"comm_glob": "*cloud_proxy*"}, {"unit_glob": "*cloud_proxy*"},
+               {"exe_glob": "*mqtt_broker*"}, {"exe_glob": "*app_proxy*"}, {"exe_glob": "*aima-agent-app*"}]},
+    {"id": "robot-telemetry-export", "label": "Telemetry and data export", "risk": "high",
+     "match": [{"exe_glob": "*data_exporter*"}, {"exe_glob": "*dc_slave*"}, {"exe_glob": "*hds_slave*"},
+               {"exe_glob": "*housekeeper*"}]},
+    {"id": "firmware-updates", "label": "OTA and firmware updates", "risk": "medium",
+     "match": [{"exe_glob": "*/ota*"}, {"comm_glob": "ota*"}, {"exe_glob": "*rk3588_ota*"}, {"exe_glob": "*dcu_ota*"}]},
+    {"id": "voice-and-audio", "label": "Voice, speech and audio services", "risk": "high",
+     "match": [{"exe_glob": "*robolink-voice*"}, {"cmd_glob": "*robolink-voice*"}, {"cmd_glob": "*x2_tts*"},
+               {"exe_glob": "*hal_audio*"}, {"exe_glob": "*interaction_slave*"}]},
+    {"id": "face-and-display", "label": "Face display and UI", "risk": "low",
+     "match": [{"exe_glob": "*face_ui*"}]},
+    {"id": "camera-and-perception", "label": "Camera and perception", "risk": "high",
+     "match": [{"exe_glob": "*hal_sensor*"}, {"exe_glob": "*mono_perception*"}]},
+    {"id": "remote-access", "label": "Remote access (SSH, VPN)", "risk": "medium",
+     "match": [{"exe_glob": "*tailscale*"}, {"exe_glob": "*sshd*"}, {"comm_glob": "tailscaled"}]},
+    {"id": "robot-teleop", "label": "Teleoperation and the operator hub", "risk": "medium",
+     "match": [{"exe_glob": "*teleop_bridge*"}, {"cmd_glob": "*x2_agent*"}, {"cmd_glob": "*hub.server*"}]},
+    {"id": "dns", "label": "Name resolution", "risk": "low", "match": [{"rport": 53}, {"rport": 853}]},
+    {"id": "time-sync", "label": "Time synchronisation", "risk": "low", "match": [{"rport": 123, "proto": "udp"}]},
+    {"id": "package-and-dev-tools", "label": "Package managers and developer tools", "risk": "medium",
+     "match": [{"exe_glob": "*/apt*"}, {"exe_glob": "*/pip*"}, {"exe_glob": "*/git"}, {"exe_glob": "*/curl"},
+               {"exe_glob": "*/wget"}, {"exe_glob": "*/docker*"}]},
+    {"id": "wireless-and-modem", "label": "Wi-Fi, Bluetooth and the 5G modem", "risk": "medium",
+     "match": [{"exe_glob": "*NetworkManager*"}, {"exe_glob": "*wpa_supplicant*"}, {"exe_glob": "*ModemManager*"},
+               {"exe_glob": "*bluetoothd*"}]}
+  ]
+}

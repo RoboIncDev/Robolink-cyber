@@ -6,7 +6,7 @@ Per-process outbound visibility and egress control for a multi-computer robot (A
 deployment runbook and the decisions to ask the human.
 
 ```bash
-python3 -W ignore -m unittest discover -s tests -t .     # 62 tests, about 20 s, no root needed
+python3 -W ignore -m unittest discover -s tests -t .     # 108 tests, about 30 s, no root needed
 tools/collect_phase0.sh                                   # Phase 0: read-only survey of the three robot computers
 ./deploy/install.sh --role all --dry-run                  # what the installer would do
 ```

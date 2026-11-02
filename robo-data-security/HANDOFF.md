@@ -14,12 +14,12 @@ parties.* The owner calls it "robo-data security software".
 
 **State of the work.** A working first version exists in this directory (`/home/ubuntu/cyber/robo-data-security/`):
 a per-computer agent, a central server with API and dashboard, and a gateway daemon that renders and applies an nftables
-egress ruleset. **62 automated tests pass** (section 5), including a functional test that loads the ruleset into the real
+egress ruleset. **108 automated tests pass** (section 5), including a functional test that loads the ruleset into the real
 kernel and checks that blocked destinations are refused. It has **not been installed on the robot**: the robot was off the
 network when this was written, so nothing about the real computers has been measured yet.
 
 **Do these, in order:**
-1. `cd /home/ubuntu/cyber/robo-data-security && python3 -W ignore -m unittest discover -s tests -t .` must print `OK` (62 tests).
+1. `cd /home/ubuntu/cyber/robo-data-security && python3 -W ignore -m unittest discover -s tests -t .` must print `OK` (108 tests).
 2. Read sections 2 to 4 of this file.
 3. Wait for / ask the human to power the robot, then run **Phase 0**: `tools/collect_phase0.sh` (read-only). Write `phase0/REPORT.md`.
 4. Ask the human the decisions in section 11 (D1 to D5) *before* installing anything.
@@ -175,11 +175,14 @@ robosec/
   nftrender.py    policy validation + nftables ruleset renderer (pure)         stdlib
   server.py       SQLite store, ingest, alerts, policy, API, dashboard         stdlib
   gatewayd.py     fetch/check/apply/verify/rollback, flow counters, --remove   stdlib
+  geodb.py        offline IP -> country / network owner (DB-IP Lite), range tables  stdlib
 config/           categories.json (FIRST GUESS), *.example.json
 dashboard/index.html      single-file UI (no external libraries), light/dark
 deploy/           install.sh, uninstall.sh, 3 systemd units
-tools/            probe.sh (read-only Phase 0 probe), collect_phase0.sh
-tests/            62 tests (below)
+tools/            probe.sh, collect_phase0.sh (Phase 0); build_geodb.py (DB-IP CSV -> geo/); build_map.py (Natural Earth -> dashboard/map/world.json)
+dashboard/        index.html (Signal System UI), fonts/ (bundled Poppins + IBM Plex Mono), map/world.json (73 KB, 174 shapes + 65 markers)
+geo/              built geo database (NOT in git: third-party data, rebuilt with tools/build_geodb.py)
+tests/            108 tests (below)
 ```
 Python target is **3.10** (PC2). Dev machine runs 3.13; avoid 3.11+ only features.
 
@@ -215,6 +218,23 @@ Real `robosec.server` and `robosec.agent` processes: 289 sockets sampled in 51-7
 internet destinations classified as `unclassified` (expected: the categories are robot-specific), alerts raised, ruleset served only to the gateway
 token, unauthenticated request got 401. Agent CPU measured **0.48 CPU-seconds over about 9 s at a 1 s interval** on the workstation
 (about 5% of one core; about half that at the default 2 s). **Not measured on the robot.** The dashboard was loaded in a real browser: tables populated, policy saved through the UI (version bumped, mode changed).
+
+
+### 5.6 Dashboard redesign and geography (added 2026-11-02)
+**Design.** `dashboard/index.html` implements the Robo Inc. *Signal System* (Draft 0.3, https://claude.ai/artifact/3PSQWtNKvom3YFnHcnBG2d): tokens copied verbatim
+(palette, type scale 12-32, spacing, radius, motion), dark by default with a Dark / Light / Device switch, Poppins for text and IBM Plex Mono for readings, state shown
+as a word plus a dot, 44 px hit targets, 16 px text floor (12 px mono labels only beside larger text), em dash for missing values (so "bytes sent" shows a dash until the gateway
+reports, never a fake 0), no gradients or glow. The STOP red is reserved for robot STOP and is **not** used for "Blocked". `tests/test_dashboard.py` locks these rules in.
+**No external requests.** Fonts and the map are served by the server from `/static/fonts` and `/static/map` (whitelisted, no path tricks). A test fails if the page references any external URL.
+**Geography.** `tools/build_geodb.py` turns DB-IP Lite country and ASN CSVs (CC BY 4.0; credit "IP Geolocation by DB-IP" with a link, shown in the footer) into compact range files in `geo/`; the server
+looks every internet destination up locally at ingest and stores `cc`, `asn`, `org` on each edge (old databases are migrated automatically). `GET /api/v1/geo/summary` aggregates by country with the
+owners behind each country, processes, and bytes (null, not 0, when the gateway has not reported). Country is approximate and a CDN address is placed where it is registered (1.1.1.1 shows Australia), so the owner is always shown with it.
+Update monthly **on the workstation**: download the two CSVs from https://download.db-ip.com/free/ , run `tools/build_geodb.py`, copy `geo/` to the server, then `POST /api/v1/regeocode`. Set `"home": {"lat":..,"lon":..,"label":".."}` in `server.json` for the map arcs.
+**Built so far:** D0 tokens + theme + bundled fonts; D1 header / readings / category switches with enforce confirmation / computers / alerts / connections table; M0 geo build + lookup;
+M1 server integration + API (`/api/v1/geo/summary`, `cc` filter on `/api/v1/edges`, `/api/v1/regeocode`); M2 map asset; **M3 the map**: "Where data goes" with a 1 hour / 24 hours / all-time window and a destinations / bytes switch
+(bytes is disabled until the gateway reports), world map in Equal Earth with grey shading and direct labels (blue is used only for selection), arcs from the configured home, a country panel (owners, programs, "Show these connections"),
+and a table beneath that carries the same numbers for keyboard and screen-reader use. The page's projection is a copy of the build tool's; a test runs both in node and Python and requires agreement to 9 decimals.
+**Not built yet:** D2 activity chart, D3 detail drawer and richer empty states, alert grouping ("Acknowledge all"; a desktop produces hundreds of alerts), hourly timeline endpoint, the owner's real **home location** (set `"home"` in `server.json`; nothing is drawn from a guess).
 
 ### 5.5 Known weaknesses in what exists (fix in the phases)
 - No retention: `edges`, `flows`, `audit`, `alerts` grow without bound (add a pruning job, P2-6).
@@ -388,7 +408,7 @@ for a first look but **not** for Phase 1 acceptance.
 
 ## 9. Test plan
 
-Automated: section 5.2 (62 tests, about 20 s). Add a test for every new rule or behaviour; nothing here may be merged without a green run.
+Automated: section 5.2 (108 tests, about 30 s). Add a test for every new rule or behaviour; nothing here may be merged without a green run.
 Functional: extend `tests/test_nft_integration.py` (it already builds a dummy interface in a user+net namespace; use `/proc/net/dev`, not `/sys`, because
 `/sys` still shows host interfaces inside the namespace). For the forward chain add a two-namespace veth topology.
 On the robot (Phase gates): see each phase's acceptance column. Record numbers in `phase0/` and `phase1/` reports; do not assert "no impact" without a measurement.
@@ -458,7 +478,7 @@ B12 Hub tab and plain-language policy wizard. (L)
 ```bash
 # run everything locally for development
 cd /home/ubuntu/cyber/robo-data-security
-python3 -W ignore -m unittest discover -s tests -t .                       # 62 tests
+python3 -W ignore -m unittest discover -s tests -t .                       # 108 tests
 python3 -m robosec.agent --once --host dev | python3 -m json.tool | head   # one sample from this machine
 python3 -c 'import secrets;print(secrets.token_urlsafe(32))'               # a token
 # render a ruleset by hand and syntax-check it in a throwaway namespace (no root, no effect on the host)

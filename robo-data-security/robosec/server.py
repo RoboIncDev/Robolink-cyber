@@ -13,6 +13,7 @@ import argparse
 import hmac
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -21,6 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import __version__
 from .categorize import UNCLASSIFIED, categorize, load_rules
+from .geodb import ATTRIBUTION, ATTRIBUTION_URL, GeoDB
 from .netscope import Scoper
 from .nftrender import DEFAULT_POLICY, header_info, render, validate_policy
 
@@ -35,6 +37,9 @@ DEFAULT_CFG = {
     "dashboard": os.path.join(HERE, "..", "dashboard", "index.html"),
     "networks": {},
     "max_learned_per_category": 4096,
+    "geodb": os.path.join(HERE, "..", "geo"),       # directory built by tools/build_geodb.py; absent = locations unknown
+    "home": None,                                    # {"lat": 52.5, "lon": 13.4, "label": "Berlin lab"}: where the robot is
+    "static_dir": os.path.join(HERE, "..", "dashboard"),
 }
 
 SCHEMA = """
@@ -61,6 +66,10 @@ class Store:
         self.lock = threading.RLock()
         with self.lock:
             self.db.executescript(SCHEMA)
+            have = {r[1] for r in self.db.execute("PRAGMA table_info(edges)")}
+            for col, typ in (("cc", "TEXT"), ("asn", "INTEGER"), ("org", "TEXT")):      # databases made before geo support
+                if col not in have:
+                    self.db.execute(f"ALTER TABLE edges ADD COLUMN {col} {typ}")
             if not self.db.execute("SELECT 1 FROM policy").fetchone():
                 body = json.dumps({k: v for k, v in DEFAULT_POLICY.items() if k != "version"})
                 self.db.execute("INSERT INTO policy(id, version, body, updated) VALUES (1, 1, ?, ?)", (body, time.time()))
@@ -103,6 +112,11 @@ class App:
         self.store = Store(self.cfg["db"])
         self.rules = load_rules(self.cfg["categories"])
         self.scoper = Scoper.from_config(self.cfg["networks"])
+        try:
+            self.geo = GeoDB.load(self.cfg["geodb"])
+        except (OSError, ValueError) as exc:                  # a corrupt database must not stop the server
+            print(f"[robosec-server] geo database not loaded: {exc}", flush=True)
+            self.geo = GeoDB()
         if not self.store.meta("learning_started"):
             self.store.set_meta("learning_started", str(time.time()))
 
@@ -135,14 +149,16 @@ class App:
                 continue
             edge["scope"] = self.scoper.scope(edge["raddr"])      # server decides scope: one source of truth
             edge["category"] = categorize(edge, self.rules)
+            g = self.geo.lookup(edge["raddr"]) if edge["scope"] == "internet" else {"cc": None, "asn": 0, "org": ""}
             row = self.store.one("SELECT id FROM edges WHERE host=? AND dir=? AND exe=? AND proto=? AND raddr=? AND rport=?",
                                  (host, edge["dir"], edge["exe"], edge["proto"], edge["raddr"], edge["rport"]))
             if row is None:
                 eid = self.store.x(
                     "INSERT INTO edges(host, dir, exe, comm, unit, cmd, uid, proto, raddr, rport, scope, category, count, "
-                    "first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "first_seen, last_seen, cc, asn, org) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (host, edge["dir"], edge["exe"], edge["comm"], edge["unit"], edge["cmd"], edge["uid"], edge["proto"],
-                     edge["raddr"], edge["rport"], edge["scope"], edge["category"], edge["n"], edge["first"], edge["last"]))
+                     edge["raddr"], edge["rport"], edge["scope"], edge["category"], edge["n"], edge["first"], edge["last"],
+                     g["cc"], g["asn"], g["org"]))
                 if edge["scope"] == "internet" and not learning:
                     kind = "new_internet_destination" if edge["dir"] == "out" else "inbound_from_internet"
                     self.store.x("INSERT INTO alerts(ts, host, kind, detail, edge_id) VALUES (?,?,?,?,?)",
@@ -151,8 +167,10 @@ class App:
                     new_alerts += 1
             else:
                 self.store.x("UPDATE edges SET count=count+?, last_seen=MAX(last_seen, ?), category=?, scope=?, comm=?, "
-                             "unit=?, cmd=? WHERE id=?", (edge["n"], edge["last"], edge["category"], edge["scope"],
-                                                          edge["comm"], edge["unit"], edge["cmd"], row["id"]))
+                             "unit=?, cmd=?, cc=COALESCE(?, cc), asn=CASE WHEN ? > 0 THEN ? ELSE asn END, "
+                             "org=CASE WHEN ? != '' THEN ? ELSE org END WHERE id=?",
+                             (edge["n"], edge["last"], edge["category"], edge["scope"], edge["comm"], edge["unit"],
+                              edge["cmd"], g["cc"], g["asn"], g["asn"], g["org"], g["org"], row["id"]))
         return {"ok": True, "alerts": new_alerts, "learning": learning}
 
     def recategorize(self) -> int:
@@ -163,6 +181,63 @@ class App:
                 self.store.x("UPDATE edges SET category=? WHERE id=?", (cat, e["id"]))
                 n += 1
         return n
+
+    # --- geography --------------------------------------------------------------------------------------
+    def regeocode(self) -> int:
+        """Re-run the geo lookup for every internet edge (after installing a newer database). Returns rows changed."""
+        n = 0
+        for e in self.store.q("SELECT id, raddr, cc, asn, org FROM edges WHERE scope='internet'"):
+            g = self.geo.lookup(e["raddr"])
+            if (g["cc"], g["asn"], g["org"]) != (e["cc"], e["asn"] or 0, e["org"] or ""):
+                self.store.x("UPDATE edges SET cc=?, asn=?, org=? WHERE id=?", (g["cc"], g["asn"], g["org"], e["id"]))
+                n += 1
+        return n
+
+    def bytes_known(self) -> bool:
+        return bool(self.store.one("SELECT 1 AS x FROM flows LIMIT 1"))
+
+    def geo_summary(self, qs: dict) -> dict:
+        """Where outbound internet traffic goes, by country, with the owners behind each country and which processes sent it."""
+        where, args = ["scope='internet'", "dir='out'"], []
+        if qs.get("host"):
+            where.append("host=?"); args.append(qs["host"][0])
+        if qs.get("since"):
+            where.append("last_seen>=?"); args.append(time.time() - float(qs["since"][0]))
+        rows = self.store.q("SELECT e.host, e.exe, e.raddr, e.rport, e.cc, e.asn, e.org, e.count, e.category, "
+                            "COALESCE((SELECT SUM(bytes) FROM flows f WHERE f.addr=e.raddr), 0) AS bytes "
+                            f"FROM edges e WHERE {' AND '.join(where)}", tuple(args))
+        known = self.bytes_known()
+        by_cc: dict = {}
+        dest_seen: dict = {}
+        for r in rows:
+            key = r["cc"] or ""
+            c = by_cc.setdefault(key, {"cc": key or None, "destinations": set(), "edges": 0, "bytes": 0, "orgs": {}, "processes": {},
+                                       "computers": set(), "categories": {}})
+            c["destinations"].add(r["raddr"]); c["edges"] += 1; c["computers"].add(r["host"])
+            first = (key, r["raddr"]) not in dest_seen
+            dest_seen[(key, r["raddr"])] = True
+            if first:
+                c["bytes"] += r["bytes"]                       # bytes belong to the address: count each address once
+            o = c["orgs"].setdefault((r["asn"] or 0, r["org"] or ""), {"asn": r["asn"] or 0, "org": r["org"] or "", "dests": set(), "bytes": 0})
+            if r["raddr"] not in o["dests"]:
+                o["bytes"] += r["bytes"]
+            o["dests"].add(r["raddr"])
+            p = c["processes"].setdefault(r["exe"], {"exe": r["exe"], "edges": 0}); p["edges"] += 1
+            c["categories"][r["category"]] = c["categories"].get(r["category"], 0) + 1
+        out = []
+        for c in by_cc.values():
+            orgs = sorted(({"asn": o["asn"], "org": o["org"], "destinations": len(o["dests"]), "bytes": o["bytes"] if known else None}
+                           for o in c["orgs"].values()), key=lambda o: -o["destinations"])
+            out.append({"cc": c["cc"], "destinations": len(c["destinations"]), "edges": c["edges"],
+                        "bytes": c["bytes"] if known else None, "computers": sorted(c["computers"]),
+                        "orgs": orgs[:12], "processes": sorted(c["processes"].values(), key=lambda p: -p["edges"])[:8],
+                        "categories": c["categories"]})
+        located = sorted((c for c in out if c["cc"]), key=lambda c: -c["destinations"])
+        unlocated = next((c for c in out if not c["cc"]), None)
+        return {"available": self.geo.available, "release": self.geo.meta.get("release", ""), "built": self.geo.meta.get("built", ""),
+                "attribution": ATTRIBUTION, "attribution_url": ATTRIBUTION_URL, "home": self.cfg.get("home"),
+                "bytes_known": known, "countries": located,
+                "unlocated": {"destinations": unlocated["destinations"], "edges": unlocated["edges"]} if unlocated else None}
 
     # --- flows (bytes) ----------------------------------------------------------------------------------
     def ingest_flows(self, host: str, flows: list[dict]) -> int:
@@ -237,12 +312,15 @@ class App:
         return {"version": __version__, "now": time.time(), "hosts": hosts, "by_scope": by_scope,
                 "internet_categories": cats, "open_alerts": s.one("SELECT COUNT(*) AS n FROM alerts WHERE acked=0")["n"],
                 "learning": self.learning(), "learning_ends": started + self.cfg["learning_hours"] * 3600,
-                "policy": self.policy(),
+                "learning_hours": self.cfg["learning_hours"],
+                "policy": self.policy(), "bytes_known": self.bytes_known(),
+                "geo": {"available": self.geo.available, "release": self.geo.meta.get("release", ""),
+                        "attribution": ATTRIBUTION, "attribution_url": ATTRIBUTION_URL},
                 "gateway": s.q("SELECT host, version, ok, detail, ts FROM gateway")}
 
     def edges(self, qs: dict) -> list[dict]:
         where, args = [], []
-        for col in ("host", "scope", "category", "dir"):
+        for col in ("host", "scope", "category", "dir", "cc"):
             if qs.get(col):
                 where.append(f"{col}=?")
                 args.append(qs[col][0])
@@ -268,7 +346,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        if "Cache-Control" not in (extra or {}):
+            self.send_header("Cache-Control", "no-store")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -300,6 +379,23 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    STATIC_TYPES = {".woff2": "font/woff2", ".json": "application/json", ".svg": "image/svg+xml"}
+
+    def _static(self, rel: str) -> None:
+        """Serve a file from dashboard/fonts or dashboard/map only. No path tricks, no other directories, no other types."""
+        parts = rel.split("/")
+        ext = os.path.splitext(rel)[1].lower()
+        if (len(parts) != 2 or parts[0] not in ("fonts", "map") or ext not in self.STATIC_TYPES
+                or not re.fullmatch(r"[A-Za-z0-9._-]+", parts[1]) or parts[1].startswith(".")):
+            return self._send(404, {"error": "not found"})
+        path = os.path.join(self.app.cfg["static_dir"], parts[0], parts[1])
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            return self._send(404, {"error": "not found"})
+        return self._send(200, data, self.STATIC_TYPES[ext], {"Cache-Control": "public, max-age=3600"})
+
     # --- routes ----------------------------------------------------------------------------------------
     def do_GET(self) -> None:                 # noqa: N802
         u = urllib.parse.urlparse(self.path)
@@ -314,6 +410,8 @@ class Handler(BaseHTTPRequestHandler):
                         return self._send(200, fh.read(), "text/html; charset=utf-8")
                 except OSError:
                     return self._send(404, {"error": "dashboard not installed"})
+            if u.path.startswith("/static/"):
+                return self._static(u.path[len("/static/"):])
             if u.path == "/api/v1/gateway/ruleset":
                 if not self._need("gateway"):
                     return
@@ -326,6 +424,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if u.path == "/api/v1/summary":
                 return self._send(200, a.summary())
+            if u.path == "/api/v1/geo/summary":
+                return self._send(200, a.geo_summary(qs))
             if u.path == "/api/v1/edges":
                 return self._send(200, {"edges": a.edges(qs)})
             if u.path == "/api/v1/alerts":
@@ -369,6 +469,8 @@ class Handler(BaseHTTPRequestHandler):
                 a.store.x("UPDATE alerts SET acked=1 WHERE id=?", (aid,))
                 a.store.audit("admin", "alert_ack", str(aid))
                 return self._send(200, {"ok": True})
+            if u.path == "/api/v1/regeocode":
+                return self._send(200, {"ok": True, "changed": a.regeocode()})
             if u.path == "/api/v1/recategorize":
                 return self._send(200, {"ok": True, "changed": a.recategorize()})
             if u.path == "/api/v1/learning/restart":

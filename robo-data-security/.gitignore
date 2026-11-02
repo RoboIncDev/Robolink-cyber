@@ -4,3 +4,4 @@ __pycache__/
 phase0/
 *.db
 *.log
+geo/

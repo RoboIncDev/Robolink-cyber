@@ -236,6 +236,20 @@ M1 server integration + API (`/api/v1/geo/summary`, `cc` filter on `/api/v1/edge
 and a table beneath that carries the same numbers for keyboard and screen-reader use. The page's projection is a copy of the build tool's; a test runs both in node and Python and requires agreement to 9 decimals.
 **Not built yet:** D2 activity chart, D3 detail drawer and richer empty states, alert grouping ("Acknowledge all"; a desktop produces hundreds of alerts), hourly timeline endpoint, the owner's real **home location** (set `"home"` in `server.json`; nothing is drawn from a guess).
 
+
+### 5.7 Live install on the robot (2026-11-02, trial mode, nothing persistent, no firewall changes)
+| Computer | What runs | How | Visibility |
+|---|---|---|---|
+| PC2 | server (internal address `10.0.1.41:8750` only) + agent `pc2` | as user `agi` from `~/robosec` with `start.sh` / `stop.sh` (no root) | partial: 12 of about 15 sockets unattributed, 302 processes unreadable |
+| PC3 | agent `pc3` | **temporary** systemd unit `robosec-agent` (via `sudo systemd-run`, user `run`, capabilities `CAP_SYS_PTRACE`+`CAP_DAC_READ_SEARCH` only, `CPUQuota=15%`, `Nice=10`), files in `/home/run/robosec` | full: 0 unattributed |
+| PC1 | agent `pc1` | same as PC3 plus `CPUAffinity=0 1 2 3` (never the real-time cores 5 to 7) | full: 0 unattributed |
+**Not installed:** the gateway (needs root on PC2 and the `nft` tool, which no robot computer has; see `docs/PHASE0_REPORT.md`). Nothing under `/etc`, no new user, no vendor service touched; `mc`, `rc`, `sm` and the EtherCAT app were checked running before and after.
+**Measured (steady state, robot idle, PC2 load average about 30 from other developers' services):** PC1 agent 2.8% of one core (a sample takes about 390 ms because PC1 has about 800 processes to scan), PC3 0.6%, PC2 about 1%; about 18 MB each. **Not measured:** any effect on a running deploy (P1-3 is still open and needs a supervised idle run).
+**Persistence:** the PC1/PC3 units are transient and the PC2 processes are not services, so **all three stop at a reboot** (PC2 rebooted three times on this day). Restart: PC2 `~/robosec/start.sh`; PC1/PC3 repeat the `systemd-run` command in section 8 (or install the persistent units with `deploy/install.sh`).
+**View it:** `ssh -L 8760:10.0.1.41:8750 agi@<PC2 wifi address>` then open http://127.0.0.1:8760/ (the workstation's own dev copy uses 8750). Admin token on PC2: `python3 -c "import json;print(json.load(open('/home/agi/robosec/server.json'))['admin_token'])"`.
+**Undo:** PC1 and PC3: `sudo systemctl stop robosec-agent; rm -rf /home/run/robosec`. PC2: `~/robosec/stop.sh; rm -rf ~/robosec`.
+**First real findings:** PC1 `aima-cloud_proxy-app` holds a connection to Beijing Volcano Engine (14.103.92.63:8885); PC3 `aima-agent-app` holds connections to Tencent Cloud Shenzhen (124.223.144.198:1443, 43.153.127.148:1883) and Volcano Engine (180.184.178.142:443); all classified `robot-vendor-cloud` by the shipped rules. What is sent is not known: bytes need the gateway.
+
 ### 5.5 Known weaknesses in what exists (fix in the phases)
 - No retention: `edges`, `flows`, `audit`, `alerts` grow without bound (add a pruning job, P2-6).
 - Ingest does one SELECT then INSERT/UPDATE per edge (fine for 3 hosts; unmeasured on PC2).

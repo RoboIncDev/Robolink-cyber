@@ -156,6 +156,56 @@ td.a{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowra
 td .cc{font-family:var(--mono);color:var(--tx)}td .org{display:block;color:var(--tx-2);font-size:var(--t-2)}
 td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
+/* robot banner */
+.robotbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--s-8);align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-5);padding:var(--s-6) var(--s-8) var(--s-6) var(--s-6);min-width:0}
+.robotbar .pic{width:96px;height:164px;display:grid;place-items:end center;border-radius:var(--r-4);background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.robotbar .pic img{width:100%;height:100%;object-fit:contain;object-position:center bottom;display:block}
+.robotbar .maker{font:500 var(--t-1)/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2)}
+.robotbar .rname{font:600 var(--t-7)/1.1 var(--ui);letter-spacing:-.01em;margin:var(--s-3) 0 var(--s-4);overflow-wrap:anywhere}
+.robotbar .rmeta{display:flex;gap:var(--s-6);flex-wrap:wrap;color:var(--tx-2);font-size:var(--t-2)}
+.robotbar .rmeta .mono{color:var(--tx)}
+.robotbar .chip{white-space:normal;height:auto;min-height:28px;padding:var(--s-2) var(--s-5);line-height:1.3}
+.robotbar .comps{min-width:0;display:flex;gap:var(--s-4);flex-wrap:wrap;margin-top:var(--s-5)}
+@media (max-width:700px){.robotbar{grid-template-columns:auto minmax(0,1fr);padding:var(--s-5)}.robotbar .act{grid-column:1/-1}.robotbar .pic{width:72px;height:124px}.robotbar .rname{font-size:var(--t-6)}}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:var(--s-5);margin:0 0 var(--s-6);padding:0;border:0}
+.pick{position:relative;display:grid;gap:var(--s-3);justify-items:center;text-align:center;padding:var(--s-5);border:1px solid var(--line);border-radius:var(--r-4);cursor:pointer;min-height:44px;background:var(--bg)}
+.pick input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.pick:has(input:checked){border-color:var(--blue);background:var(--blue-plate)}
+.pick:has(input:focus-visible){outline:2px solid var(--blue);outline-offset:2px}
+.pick img{height:110px;width:auto;max-width:100%;object-fit:contain}.pick b{font-weight:500}.pick small{color:var(--tx-2);font:500 var(--t-1)/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.flag{width:20px;height:20px;border-radius:50%;vertical-align:-4px;margin-right:var(--s-3);flex:none;box-shadow:0 0 0 1px var(--line)}
+.flag.big{width:32px;height:32px;vertical-align:-8px;margin-right:var(--s-4)}
+/* secure data */
+.secure{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-5);overflow:hidden}
+.secure .top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-7);align-items:center;padding:var(--s-7) var(--s-8)}
+@media (max-width:700px){.secure .top{grid-template-columns:minmax(0,1fr)}}
+.secure h2{display:flex;align-items:center;flex-wrap:wrap}
+.secure .big{font:600 var(--t-6)/1.2 var(--ui);margin:var(--s-4) 0}
+.secure .btns{display:flex;gap:var(--s-5);flex-wrap:wrap;align-items:center}
+.secure .btn.go{min-height:56px;font-size:var(--t-4);padding:0 var(--s-9)}
+.secure .cov{display:flex;gap:var(--s-4);flex-wrap:wrap;padding:var(--s-5) var(--s-8);border-top:1px solid var(--line)}
+.secure .note{padding:var(--s-5) var(--s-8);border-top:1px solid var(--line);background:var(--bg);color:var(--tx-2);font-size:var(--t-2)}
+.secure .note b{color:var(--tx);font-weight:500}
+.opts{display:grid;gap:0;margin:0 0 var(--s-5);padding:0;border:1px solid var(--line);border-radius:var(--r-3);overflow:hidden}
+.opt{display:flex;gap:var(--s-5);align-items:center;min-height:44px;padding:var(--s-3) var(--s-5);cursor:pointer}
+.opt+.opt{border-top:1px solid var(--line)}
+.opt input{width:20px;height:20px;accent-color:var(--blue);flex:none}
+.opt span{color:var(--tx)}.opt small{color:var(--tx-2);margin-left:auto;font:400 var(--t-1)/1 var(--mono)}
+dialog legend,.lg{font:500 var(--t-1)/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2);padding:0;margin-bottom:var(--s-4)}
+.st{display:inline-flex;gap:var(--s-3);margin:0 var(--s-3) var(--s-2) 0}
+.pr-only{display:none}
+@media print{
+  :root,:root[data-theme]{--bg:#fff;--panel:#fff;--tx:#000;--tx-2:#333;--line:#999;--hover:transparent}
+  body{padding:0;background:#fff;color:#000}
+  header,#login,#strip,#robot,#secure,#mapsec,#leavesec,#compsec,#alsec,#consec,footer,.noprint,.toast{display:none!important}
+  .wrap>#app{display:block!important}
+  .pr-only{display:block}
+  .tablewrap{max-height:none!important;overflow:visible;border:0}
+  table{min-width:0!important;font-size:12px}
+  th{position:static}
+  tr{break-inside:avoid}
+}
+
 /* map: data is grey (blue is reserved for action and selection), state hues are never used for data */
 .mapgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:var(--s-6);align-items:start}
 @media (max-width:900px){.mapgrid{grid-template-columns:minmax(0,1fr)}}
@@ -189,6 +239,7 @@ button.item[aria-pressed=true]{background:var(--blue-plate)}
 .subhead{padding:var(--s-4) var(--s-6);border-top:1px solid var(--line);background:var(--bg)}
 .mini{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-5);padding:var(--s-4) var(--s-6);border-top:1px solid var(--line);font-size:var(--t-2)}
 .mini .nm{overflow-wrap:anywhere}.mini .vv{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--tx-2);white-space:nowrap}
+
 /* dialogs */
 dialog{border:1px solid var(--line);border-radius:var(--r-5);background:var(--raised);color:var(--tx);padding:var(--s-8);max-width:min(520px,calc(100vw - 32px));box-shadow:var(--elev-2)}
 dialog::backdrop{background:var(--scrim)}
@@ -208,6 +259,7 @@ footer a{color:var(--blue)}
   <header>
     <div class="brand"><b>Robosec</b><span>Robot data security</span></div>
     <div class="tools">
+      <span id="homechip" class="chip" hidden><i></i><span>Home</span></span>
       <span id="live" class="chip"><i></i><span>Not connected</span></span>
       <span id="modechip" class="chip"><i></i><span>—</span></span>
       <button id="stopenf" class="btn small" hidden>Switch enforcement off</button>
@@ -228,9 +280,25 @@ footer a{color:var(--blue)}
   </section>
 
   <div id="app" hidden>
-    <div class="strip" id="strip"></div>
+    <section id="robot" class="robotbar" aria-label="Robot this system protects"></section>
 
-    <section aria-labelledby="maph" style="margin-top:var(--s-8)">
+    <div class="strip" id="strip" style="margin-top:var(--s-8)"></div>
+
+    <section id="secure" class="secure" aria-labelledby="sech" style="margin-top:var(--s-8)"></section>
+
+    <section id="report" aria-labelledby="reph" style="margin-top:var(--s-8)">
+      <div class="head"><h2 id="reph">Data sent abroad</h2>
+        <div class="tools noprint">
+          <div class="seg" id="rwin" role="group" aria-label="Report period"><button data-rwin="86400" aria-pressed="true">24 hours</button><button data-rwin="604800" aria-pressed="false">7 days</button><button data-rwin="0" aria-pressed="false">All time</button></div>
+          <button class="btn small" id="r-csv" type="button">Download CSV</button><button class="btn small" id="r-print" type="button">Print report</button>
+        </div></div>
+      <p class="pr-only" id="r-printhead"></p>
+      <p class="sub" id="r-sub"></p>
+      <div class="tablewrap" style="max-height:none"><table aria-label="Countries that received data from the robot" style="min-width:900px"><thead><tr><th>Country</th><th style="text-align:right">Destinations</th><th>Owners</th><th>Programs</th><th>Computers</th><th style="text-align:right">Sent</th><th style="text-align:right">Blocked</th><th>Status</th></tr></thead><tbody id="r-body"></tbody></table></div>
+      <p class="sub" id="r-notes"></p>
+    </section>
+
+    <section id="mapsec" aria-labelledby="maph" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="maph">Where data goes</h2>
         <div class="tools">
           <div class="seg" id="win" role="group" aria-label="Time window"><button data-win="3600" aria-pressed="false">1 hour</button><button data-win="86400" aria-pressed="true">24 hours</button><button data-win="0" aria-pressed="false">All time</button></div>
@@ -244,24 +312,24 @@ footer a{color:var(--blue)}
       <div class="tablewrap" style="max-height:420px"><table id="ctable" aria-label="Countries that received data" style="min-width:700px"><thead><tr><th>Country</th><th style="text-align:right">Destinations</th><th>Owners</th><th>Computers</th><th style="text-align:right">Bytes sent</th></tr></thead><tbody id="ctbody"></tbody></table></div>
     </section>
 
-    <section aria-labelledby="leaveh" style="margin-top:var(--s-8)">
+    <section id="leavesec" aria-labelledby="leaveh" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="leaveh">What is leaving</h2>
         <div class="seg" role="group" aria-label="Mode"><button id="m-observe" aria-pressed="true">Observe</button><button id="m-enforce" aria-pressed="false">Enforce</button></div></div>
       <p class="sub" id="leavenote"></p>
       <div class="list" id="cats"></div>
     </section>
 
-    <section aria-labelledby="comph" style="margin-top:var(--s-8)">
+    <section id="compsec" aria-labelledby="comph" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="comph">Computers</h2><span class="sub" id="gwline"></span></div>
       <div class="list" id="hosts"></div>
     </section>
 
-    <section aria-labelledby="alh" style="margin-top:var(--s-8)">
+    <section id="alsec" aria-labelledby="alh" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="alh">Alerts</h2><span class="sub" id="alsub"></span></div>
       <div class="list" id="alerts"></div>
     </section>
 
-    <section aria-labelledby="conh" style="margin-top:var(--s-8)">
+    <section id="consec" aria-labelledby="conh" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="conh">Connections</h2><span class="sub" id="consub"></span></div>
       <form class="filters" id="filters" onsubmit="return false">
         <div class="field"><label for="f-scope">Where to</label><select id="f-scope"><option value="internet">Internet</option><option value="">Everything</option><option value="lan">Local network</option><option value="vpn">VPN</option><option value="robot">Robot internal</option></select></div>
@@ -283,6 +351,22 @@ footer a{color:var(--blue)}
   <ul id="enflist"></ul>
   <p>The robot's internal network and your local network are never affected. You can switch enforcement off at any time, and if this tool stops, traffic flows again.</p>
   <div class="actions"><button class="btn quiet" id="enf-cancel" type="button">Cancel</button><button class="btn primary" id="enf-go" type="button">Turn on enforcement</button></div>
+</dialog>
+<dialog id="securedlg" aria-labelledby="sdh">
+  <h2 id="sdh">Secure data?</h2>
+  <p id="sd-lead"></p>
+  <ul id="sd-list"></ul>
+  <fieldset class="opts" style="border:0;padding:0;margin:0 0 var(--s-5)"><legend>Keep these working</legend><div class="opts" id="sd-ex"></div></fieldset>
+  <div class="lg">For how long</div>
+  <div class="seg" id="sd-dur" role="group" aria-label="Duration" style="margin-bottom:var(--s-5)"><button data-d="3600" aria-pressed="true">1 hour</button><button data-d="28800" aria-pressed="false">8 hours</button><button data-d="0" aria-pressed="false">Until I switch it off</button></div>
+  <p>Only traffic to the internet outside your home country is stopped. The robot's own network, your local network and VPN are never touched. Switch it off any time, and if this tool stops, data flows again.</p>
+  <div class="actions"><button class="btn quiet" id="sd-cancel" type="button">Cancel</button><button class="btn primary" id="sd-go" type="button">Secure data</button></div>
+</dialog>
+<dialog id="robotdlg" aria-labelledby="rdh">
+  <h2 id="rdh">Which robot is this?</h2>
+  <fieldset class="picks" id="rd-picks" style="border:0;padding:0"></fieldset>
+  <div class="filters"><div class="field"><label for="rd-label">Name (optional)</label><input id="rd-label" maxlength="40" autocomplete="off"></div><div class="field"><label for="rd-serial">Serial (optional)</label><input id="rd-serial" maxlength="40" autocomplete="off" spellcheck="false"></div></div>
+  <div class="actions"><button class="btn quiet" id="rd-cancel" type="button">Cancel</button><button class="btn primary" id="rd-go" type="button">Save</button></div>
 </dialog>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
@@ -311,7 +395,7 @@ let saved="dark";try{saved=localStorage.getItem("robosec-theme")||"dark"}catch(e
 $("loginform").onsubmit=async e=>{e.preventDefault();TOKEN=$("tok").value.trim();$("loginerr").textContent="";
   try{await api("/api/v1/summary");try{sessionStorage.setItem("robosec",TOKEN)}catch(x){}$("tok").value="";start()}
   catch(x){TOKEN="";$("loginerr").textContent=x.auth?"That token was not accepted. Check it in server.json.":"Could not reach the server."}};
-$("disconnect").onclick=()=>{TOKEN="";try{sessionStorage.removeItem("robosec")}catch(e){}clearInterval(TIMER);$("app").hidden=true;$("login").hidden=false;$("disconnect").hidden=true;chip($("live"),"","Not connected");chip($("modechip"),"","—")};
+$("disconnect").onclick=()=>{TOKEN="";$("homechip").hidden=true;try{sessionStorage.removeItem("robosec")}catch(e){}clearInterval(TIMER);$("app").hidden=true;$("login").hidden=false;$("disconnect").hidden=true;chip($("live"),"","Not connected");chip($("modechip"),"","—")};
 
 /* policy */
 const riskBars=r=>{const n={low:1,medium:2,high:3}[r]||0;return`<span class="risk" aria-hidden="true">${[1,2,3].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`};
@@ -384,7 +468,7 @@ async function renderEdges(){
   $("consub").textContent=e.length+" shown";
   $("edges").innerHTML=e.length?e.map(x=>{const base=(x.exe||"?").split("/").pop();
     return`<tr><td class="a">${esc(x.host)}</td><td class="p">${esc(base)}<small>${esc(x.dir==="in"?"inbound":"outbound")} · ${esc(x.proto)} · ${esc(x.exe)}</small></td>
-    <td class="a">${esc(x.raddr)}:${x.rport}</td><td>${x.scope==="internet"?(x.cc||x.org?`<span class="cc">${esc(x.cc||DASH)}</span><span class="org">${esc(x.org||"")}</span>`:`<span class="off">Unknown</span>`):`<span class="off">${esc(x.scope)}</span>`}</td>
+    <td class="a">${esc(x.raddr)}:${x.rport}</td><td>${x.scope==="internet"?(x.cc||x.org?`<span class="cc">${flag(x.cc)}${esc(x.cc||DASH)}</span><span class="org">${esc(x.org||"")}</span>`:`<span class="off">Unknown</span>`):`<span class="off">${esc(x.scope)}</span>`}</td>
     <td>${esc(x.category)}</td><td class="n">${ago(x.last_seen)}</td><td class="n">${known&&x.scope==="internet"?bytes(x.bytes_to_dest):DASH}</td></tr>`}).join(""):`<tr><td colspan="7"><div class="empty"><b>Nothing matches.</b>Try a wider filter, or wait for the agents to report.</div></td></tr>`;
 }
 $("f-go").onclick=()=>renderEdges().catch(()=>{});$("f-q").oninput=()=>{clearTimeout($("f-q").t);$("f-q").t=setTimeout(()=>renderEdges().catch(()=>{}),300)};
@@ -453,7 +537,7 @@ function renderPanel(){
   if(!list.length){el.innerHTML='<div class="empty"><b>No located destinations in this window.</b>Traffic to the internet will appear here once agents report it.</div>';return}
   const c=SEL&&CMAP[SEL];
   if(c){
-    el.innerHTML='<div class="item"><div><div class="cname"><span class="name">'+esc(NAMES[c.cc]||c.cc)+'</span><span class="code">'+esc(c.cc)+'</span></div>'+
+    el.innerHTML='<div class="item"><div><div class="cname"><span class="name">'+flag(c.cc)+esc(NAMES[c.cc]||c.cc)+'</span><span class="code">'+esc(c.cc)+'</span></div>'+
       '<div class="meta"><span><span class="mono">'+c.destinations+'</span> destinations</span><span>Bytes sent <span class="mono">'+(c.bytes==null?DASH:bytes(c.bytes))+'</span></span><span>From <span class="mono">'+esc((c.computers||[]).join(", "))+'</span></span></div></div>'+
       '<div class="ctl"><button class="btn quiet small" id="p-clear">Back</button></div></div>'+
       '<div class="subhead cap">Owners</div>'+(c.orgs||[]).map(o=>'<div class="mini"><span class="nm">'+esc(o.org||"Unknown owner")+(o.asn?' <span class="off mono">AS'+o.asn+'</span>':"")+'</span><span class="vv">'+o.destinations+' dest · '+(o.bytes==null?DASH:bytes(o.bytes))+'</span></div>').join("")+
@@ -463,13 +547,13 @@ function renderPanel(){
     $("p-show").onclick=()=>{$("f-cc").value=c.cc;$("f-scope").value="internet";renderEdges().catch(()=>{});$("conh").scrollIntoView({behavior:"smooth"})};
     return}
   const max=Math.max(1,...list.map(mval));
-  el.innerHTML='<div class="item" style="min-height:0"><div class="cap">Top countries</div></div>'+list.slice(0,8).map(x=>'<button class="item" data-cc="'+esc(x.cc)+'" aria-pressed="false"><div><div class="cname"><span class="name">'+esc(NAMES[x.cc]||x.cc)+'</span><span class="code">'+esc(x.cc)+'</span></div>'+
+  el.innerHTML='<div class="item" style="min-height:0"><div class="cap">Top countries</div></div>'+list.slice(0,8).map(x=>'<button class="item" data-cc="'+esc(x.cc)+'" aria-pressed="false"><div><div class="cname"><span class="name">'+flag(x.cc)+esc(NAMES[x.cc]||x.cc)+'</span><span class="code">'+esc(x.cc)+'</span></div>'+
     '<div class="share"><i style="width:'+Math.max(3,100*mval(x)/max)+'%"></i></div></div><div class="ctl"><span class="mono">'+(METRIC==="bytes"?bytes(x.bytes):x.destinations)+'</span></div></button>').join("");
   el.querySelectorAll("button.item").forEach(b=>b.onclick=()=>selectCountry(b.dataset.cc));
 }
 function renderCountryTable(){
   const g=GEOW,tb=$("ctbody");if(!g)return;
-  const rows=[...(g.countries||[])].sort((a,b)=>mval(b)-mval(a)).map(c=>'<tr><td><button class="btn quiet small" data-cc="'+esc(c.cc)+'" aria-label="Select '+esc(NAMES[c.cc]||c.cc)+'" style="min-height:44px;padding:0 8px;color:var(--tx);text-align:left">'+esc(NAMES[c.cc]||c.cc)+' <span class="off mono">'+esc(c.cc)+'</span></button>'+(MAPD&&!(MAPD.countries.concat(MAPD.points).some(m=>m.cc===c.cc))?'<span class="off" style="display:block;font-size:var(--t-2)">Not drawn on the map</span>':"")+'</td>'+
+  const rows=[...(g.countries||[])].sort((a,b)=>mval(b)-mval(a)).map(c=>'<tr><td><button class="btn quiet small" data-cc="'+esc(c.cc)+'" aria-label="Select '+esc(NAMES[c.cc]||c.cc)+'" style="min-height:44px;padding:0 8px;color:var(--tx);text-align:left">'+flag(c.cc)+esc(NAMES[c.cc]||c.cc)+' <span class="off mono">'+esc(c.cc)+'</span></button>'+(MAPD&&!(MAPD.countries.concat(MAPD.points).some(m=>m.cc===c.cc))?'<span class="off" style="display:block;font-size:var(--t-2)">Not drawn on the map</span>':"")+'</td>'+
     '<td class="n">'+c.destinations+'</td><td>'+esc((c.orgs||[]).slice(0,3).map(o=>o.org||"Unknown").join(", "))+'</td><td class="a">'+esc((c.computers||[]).join(", "))+'</td><td class="n">'+(c.bytes==null?DASH:bytes(c.bytes))+'</td></tr>');
   if(g.unlocated)rows.push('<tr><td><span class="off">Not located</span></td><td class="n">'+g.unlocated.destinations+'</td><td class="off">The database has no entry for these addresses</td><td></td><td class="n">'+DASH+'</td></tr>');
   tb.innerHTML=rows.length?rows.join(""):'<tr><td colspan="5"><div class="empty"><b>Nothing to show yet.</b>Countries appear here once agents report internet traffic.</div></td></tr>';
@@ -478,16 +562,101 @@ function renderCountryTable(){
 document.querySelectorAll("#win button").forEach(b=>b.onclick=()=>{WIN=+b.dataset.win;document.querySelectorAll("#win button").forEach(x=>x.setAttribute("aria-pressed",x===b));refresh()});
 document.querySelectorAll("#metric button").forEach(b=>b.onclick=()=>{if(b.disabled)return;METRIC=b.dataset.metric;document.querySelectorAll("#metric button").forEach(x=>x.setAttribute("aria-pressed",x===b));paintMap();renderPanel();renderCountryTable()});
 
+
+/* ---------- flags, robot, secure data, report ---------- */
+const flag=(cc,big)=>/^[A-Za-z]{2}$/.test(cc||"")?`<img class="flag${big?" big":""}" src="/static/flags/${cc.toLowerCase()}.svg" alt="" width="${big?32:20}" height="${big?32:20}" loading="lazy" onerror="this.remove()">`:"";
+const the=n=>/^United /.test(n||"")?"the "+n:n;
+const cname=cc=>NAMES[cc]||(SECURE&&SECURE.home_cc===cc&&SECURE.home&&SECURE.home.label)||cc;
+let SECURE=null,ROBOT=null,REPORT=null,RWIN=86400,SDUR=3600,RPICK="";
+function renderRobot(){
+  const r=ROBOT;if(!r)return;const now=Date.now()/1000,seen={};(SUM.hosts||[]).forEach(h=>seen[h.host]=h);
+  const names=r.computers.length?r.computers:(r.computers_seen||[]);
+  const comps=names.map(n=>{const h=seen[n],live=h&&now-h.last_seen<45,role=r.roles&&r.roles[n];
+    return`<span class="chip ${live?"nominal":h?"caution":""}"><i></i>${esc(n)}${role?" · "+esc(role):""} · ${live?"reporting":h?"silent":"not reporting"}</span>`}).join("");
+  $("robot").innerHTML=`<div class="pic"><img src="/static/robots/${esc(r.image)}" alt="Render of the ${esc(r.maker+" "+r.name)}" width="96" height="164"></div>
+   <div><div class="maker">${esc(r.maker)}</div><div class="rname">${esc(r.name)}</div>
+   <div class="rmeta">${r.label?`<span>${esc(r.label)}</span>`:""}${r.serial?`<span>Serial <span class="mono">${esc(r.serial)}</span></span>`:""}<span><span class="mono">${names.length}</span> computer${names.length===1?"":"s"}</span></div>
+   <div class="comps">${comps||'<span class="sub">No computers have reported yet.</span>'}</div></div>
+   <div class="act"><button class="btn" id="rb-change" type="button">Change robot</button></div>`;
+  $("rb-change").onclick=()=>{RPICK=r.id;$("rd-label").value=r.label||"";$("rd-serial").value=r.serial||"";
+    $("rd-picks").innerHTML='<legend class="lg">Robot</legend>'+r.catalog.map(c=>`<label class="pick"><input type="radio" name="rpick" value="${esc(c.id)}"${c.id===r.id?" checked":""}><img src="/static/robots/${esc(c.image)}" alt="" height="110"><b>${esc(c.name)}</b><small>${esc(c.maker)}</small></label>`).join("");
+    $("rd-picks").querySelectorAll("input").forEach(i=>i.onchange=()=>RPICK=i.value);$("robotdlg").showModal()};
+}
+$("rd-cancel").onclick=()=>$("robotdlg").close();
+$("rd-go").onclick=async()=>{$("robotdlg").close();try{ROBOT=await api("/api/v1/robot",{method:"PUT",body:JSON.stringify({model:RPICK,label:$("rd-label").value,serial:$("rd-serial").value})});toast("Robot saved.");renderRobot()}catch(e){toast("Could not save: "+e.message)}};
+
+const SLABEL={needs_home:["fault","Set a home country"],open:["caution","Open"],quiet:["nominal","Nothing leaving"],waiting:["caution","Waiting for enforcers"],partial:["caution","Partly secured"],secured:["nominal","Secured"]};
+function renderSecure(){
+  const s=SECURE;if(!s)return;const el=$("secure"),st=s.state,lab=SLABEL[s.label]||["","—"],hn=the(s.home&&s.home.label||cname(s.home_cc)||"home country");
+  const f=s.foreign,cov=s.coverage,on=st.enabled;
+  let big,lead;
+  if(s.label==="needs_home"){big="No home country is set.";lead='Add <span class="mono">"home": {"country": "US", "lat": 39.83, "lon": -98.58, "label": "United States"}</span> to server.json and restart the server.'}
+  else if(!f.destinations){big="Nothing has gone abroad.";lead="No foreign destinations have been seen yet."}
+  else{big=`${f.destinations} destination${f.destinations===1?"":"s"} in ${f.countries} countr${f.countries===1?"y":"ies"} outside ${hn}.`;
+    lead=on?`${f.would_block} blocked, ${f.exempt} kept working on purpose.${st.until?" Secure data ends "+new Date(st.until*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+".":" It stays on until you switch it off."}`
+      :`Right now all of it can leave. ${f.would_block} would be blocked, ${f.exempt} would be kept working.`}
+  const covh=s.enforcers.map(e=>`<span class="chip ${e.active?(e.blocking?"nominal":"caution"):""}"><i></i>${esc(e.host)} · ${e.active?(e.blocking?"enforcing":"counting only"):"no enforcer"}</span>`).join("");
+  let note="";
+  if(on&&!cov.active)note=`<b>Secure data is on, but no computer is enforcing yet.</b> Nothing is being blocked. Install the enforcer on each computer (see HANDOFF.md, section on Secure data); the commands need root and are never run for you.`;
+  else if(on&&cov.missing.length)note=`<b>Not protected: ${esc(cov.missing.join(", "))}.</b> Data from ${cov.missing.length===1?"this computer":"these computers"} can still leave. Install the enforcer there.`;
+  else if(s.blocked&&s.blocked.packets)note=`<b>Stopped so far:</b> ${bytes(s.blocked.bytes)} in ${s.blocked.packets} packets that were headed abroad.`;
+  else if(!on&&cov.active)note=`Enforcers are installed on ${cov.active} of ${cov.total} computers and are counting only.`;
+  el.innerHTML=`<div class="top"><div style="min-width:0"><h2 id="sech">${flag(s.home_cc,true)}Data leaving ${esc(hn)}</h2>
+     <div class="big">${big}</div><div class="sub">${lead}</div>
+     <div style="margin-top:var(--s-5)"><span class="chip ${lab[0]}${on&&s.label==="secured"?" live":""}"><i></i>${lab[1]}</span></div></div>
+    <div class="btns">${on?'<button class="btn go" id="sec-off" type="button">Reopen</button>':`<button class="btn primary go" id="sec-on" type="button"${s.label==="needs_home"||!f.destinations?" disabled":""}>Secure data</button>`}</div></div>
+    ${covh?`<div class="cov">${covh}</div>`:""}${note?`<div class="note">${note}</div>`:""}`;
+  if($("sec-on"))$("sec-on").onclick=openSecure;
+  if($("sec-off"))$("sec-off").onclick=async()=>{try{SECURE=await api("/api/v1/secure",{method:"PUT",body:JSON.stringify({enabled:false})});toast("Reopened. Data can leave again.");renderSecure();refresh()}catch(e){toast("Could not reopen: "+e.message)}};
+  const hc=$("homechip");hc.hidden=!s.home_cc;if(s.home_cc){hc.className="chip";hc.innerHTML=flag(s.home_cc)+'<span>Home · '+esc(hn)+'</span>'}
+}
+function openSecure(){
+  const s=SECURE,f=s.foreign,hn=the(s.home&&s.home.label||cname(s.home_cc));
+  $("sd-lead").textContent=`This will stop data going to ${f.would_block} address${f.would_block===1?"":"es"} outside ${hn}:`;
+  const byHost={};(REPORT&&REPORT.countries||[]).forEach(c=>c.programs.forEach(p=>{(byHost[p.host]=byHost[p.host]||new Set()).add(p.program)}));
+  const hosts=Object.keys(byHost).sort();
+  $("sd-list").innerHTML=(hosts.length?hosts.map(h=>`<li><span class="mono">${esc(h)}</span>: ${esc([...byHost[h]].slice(0,5).join(", "))}</li>`):[`<li>${f.countries} countries</li>`]).join("");
+  const ex=new Set(s.state.exempt_categories);
+  $("sd-ex").innerHTML=CATS.concat([{id:"unclassified",label:"Not yet classified"}]).map(c=>`<label class="opt"><input type="checkbox" value="${esc(c.id)}"${ex.has(c.id)?" checked":""}><span>${esc(c.label)}</span><small>${esc(c.id)}</small></label>`).join("");
+  SDUR=3600;document.querySelectorAll("#sd-dur button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.d==="3600"));
+  $("securedlg").showModal();
+}
+document.querySelectorAll("#sd-dur button").forEach(b=>b.onclick=()=>{SDUR=+b.dataset.d;document.querySelectorAll("#sd-dur button").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+$("sd-cancel").onclick=()=>$("securedlg").close();
+$("sd-go").onclick=async()=>{const ex=[...$("sd-ex").querySelectorAll("input:checked")].map(i=>i.value);$("securedlg").close();
+  try{SECURE=await api("/api/v1/secure",{method:"PUT",body:JSON.stringify({enabled:true,duration_s:SDUR,exempt_categories:ex})});toast("Secure data is on.");renderSecure();refresh()}catch(e){toast("Could not secure data: "+e.message)}};
+
+const STW={secured:["nominal","Secured"],open:["caution","Open"],exempt:["","Kept working"]};
+function renderReport(){
+  const r=REPORT;if(!r)return;
+  if(r.needs_home){$("r-sub").textContent="Set a home country in server.json to see what leaves it.";$("r-body").innerHTML='<tr><td colspan="8"><div class="empty"><b>No home country is set.</b>Without it the report cannot tell home from abroad.</div></td></tr>';$("r-notes").textContent="";$("r-csv").disabled=true;return}
+  $("r-csv").disabled=false;const t=r.totals,per=RWIN===86400?"in the last 24 hours":RWIN===604800?"in the last 7 days":"since the agents started";
+  $("r-sub").innerHTML=`${flag(r.home_cc)}Outside ${esc(the(r.home_name||r.home_cc))}, ${per}: <span class="mono">${t.destinations}</span> destinations in <span class="mono">${t.countries}</span> countries, from <span class="mono">${t.computers}</span> computers and <span class="mono">${t.programs}</span> programs. Sent <span class="mono">${bytes(t.bytes_sent)}</span>, blocked <span class="mono">${bytes(t.bytes_blocked)}</span>.`;
+  $("r-printhead").textContent=`Robosec report. ${ROBOT?ROBOT.maker+" "+ROBOT.name+(ROBOT.serial?" ("+ROBOT.serial+")":""):""} Generated ${new Date(r.generated*1000).toLocaleString()}. Home: ${r.home_name||r.home_cc}.`;
+  const sbadge=sts=>Object.keys(sts).map(k=>{const w=STW[k]||["fault",k.charAt(0).toUpperCase()+k.slice(1)];return`<span class="st"><span class="chip ${w[0]}"><i></i>${esc(w[1])}${sts[k]>1?" ×"+sts[k]:""}</span></span>`}).join("");
+  const rows=r.countries.map(c=>`<tr><td class="p">${flag(c.cc)}${esc(c.name||c.cc)} <span class="off mono" style="font-size:var(--t-2);font-weight:400">${esc(c.cc)}</span>${c.new?' <span class="chip caution" style="margin-left:6px"><i></i>New</span>':""}</td>
+    <td class="n">${c.destinations}</td><td>${esc(c.owners.slice(0,3).map(o=>o.org).join(", "))}</td><td>${esc([...new Set(c.programs.map(p=>p.program))].slice(0,4).join(", "))}</td>
+    <td class="a">${esc(c.computers.join(", "))}</td><td class="n">${bytes(c.bytes_sent)}</td><td class="n">${bytes(c.bytes_blocked)}</td><td>${sbadge(c.statuses)}</td></tr>`);
+  if(r.unlocated)rows.push(`<tr><td><span class="off">Not located</span></td><td class="n">${r.unlocated.destinations}</td><td class="off" colspan="2">The database has no entry for these addresses, so they are not counted as abroad and are never blocked.</td><td></td><td class="n">${DASH}</td><td class="n">${DASH}</td><td></td></tr>`);
+  $("r-body").innerHTML=rows.length?rows.join(""):'<tr><td colspan="8"><div class="empty"><b>Nothing has gone abroad in this period.</b>Destinations appear here once agents report internet traffic.</div></td></tr>';
+  $("r-notes").textContent=(r.notes||[]).join(" ")+(t.bytes_sent==null?" Bytes show a dash until an enforcer or the gateway counts them.":"");
+}
+document.querySelectorAll("#rwin button").forEach(b=>b.onclick=()=>{RWIN=+b.dataset.rwin;document.querySelectorAll("#rwin button").forEach(x=>x.setAttribute("aria-pressed",x===b));refresh()});
+$("r-print").onclick=()=>window.print();
+$("r-csv").onclick=async()=>{try{const r=await fetch("/api/v1/report/abroad.csv?since="+RWIN,{headers:{"Authorization":"Bearer "+TOKEN}});if(!r.ok)throw new Error("returned "+r.status);
+  const u=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=u;a.download="data-sent-abroad.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);toast("CSV downloaded.")}catch(e){toast("Could not download: "+e.message)}};
+
 /* main loop */
 async function refresh(){
   try{
-    const [s,c,g]=await Promise.all([api("/api/v1/summary"),api("/api/v1/categories"),api("/api/v1/geo/summary")]);
+    const [s,c,g,sec,rob,rep]=await Promise.all([api("/api/v1/summary"),api("/api/v1/categories"),api("/api/v1/geo/summary"),api("/api/v1/secure"),api("/api/v1/robot"),api("/api/v1/report/abroad?since="+RWIN)]);
+    SECURE=sec;ROBOT=rob;REPORT=rep;
     SUM=s;CATS=c.categories;GEO=g;GEOW=WIN?await api("/api/v1/geo/summary?since="+WIN):g;POLICY=s.policy;if(!DRAFT||!dirty())DRAFT=JSON.parse(JSON.stringify(POLICY));
     LASTOK=Date.now();
     const sel=$("f-host"),cur=sel.value;sel.innerHTML='<option value="">All</option>'+(s.hosts||[]).map(h=>`<option>${esc(h.host)}</option>`).join("");sel.value=cur;
     const enf=POLICY.mode==="enforce";chip($("modechip"),enf?"caution":"plate",enf?"Enforcing":"Observing");$("stopenf").hidden=!enf;
     chip($("live"),"nominal","Live",true);
-    renderStrip();if(!dirty())renderCats();renderHosts();await ensureMap();paintMap();renderPanel();renderCountryTable();await renderAlerts();await renderEdges();
+    renderRobot();renderStrip();if(!dirty())renderCats();renderHosts();await ensureMap();renderSecure();renderReport();paintMap();renderPanel();renderCountryTable();await renderAlerts();await renderEdges();
     $("attr").innerHTML=GEO&&GEO.available?`<a href="${esc(GEO.attribution_url)}" rel="noopener noreferrer" target="_blank">IP Geolocation by DB-IP</a> · release ${esc(GEO.release||DASH)}`:"Locations are unavailable: no geo database is installed.";
   }catch(e){
     if(e.auth){$("disconnect").onclick();$("loginerr").textContent="The token was not accepted.";return}

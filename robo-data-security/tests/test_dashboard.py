@@ -135,7 +135,7 @@ class Dashboard(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_size_budget(self):
-        self.assertLess(len(HTML.encode()), 60 * 1024)
+        self.assertLess(len(HTML.encode()), 80 * 1024)
         fonts = sum(os.path.getsize(os.path.join(ROOT, "dashboard", "fonts", f)) for f in os.listdir(os.path.join(ROOT, "dashboard", "fonts")) if f.endswith(".woff2"))
         self.assertLess(fonts, 100 * 1024)
 

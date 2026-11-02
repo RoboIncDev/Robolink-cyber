@@ -25,6 +25,8 @@ from .categorize import UNCLASSIFIED, categorize, load_rules
 from .geodb import ATTRIBUTION, ATTRIBUTION_URL, GeoDB
 from .netscope import Scoper
 from .nftrender import DEFAULT_POLICY, header_info, render, validate_policy
+from .secure import SecureService
+from . import robots
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 2 * 1024 * 1024
@@ -39,7 +41,9 @@ DEFAULT_CFG = {
     "max_learned_per_category": 4096,
     "geodb": os.path.join(HERE, "..", "geo"),       # directory built by tools/build_geodb.py; absent = locations unknown
     "home": None,                                    # {"lat": 52.5, "lon": 13.4, "label": "Berlin lab"}: where the robot is
+    "robot": {"model": "x2-ultra", "label": "", "serial": ""},   # starting choice; the dashboard can change it (saved in the database)
     "static_dir": os.path.join(HERE, "..", "dashboard"),
+    "enforcer_stale_s": 45,                          # an enforcer silent for longer than this is treated as not enforcing
 }
 
 SCHEMA = """
@@ -56,6 +60,9 @@ CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS flows(host TEXT, addr TEXT, bytes INTEGER, packets INTEGER, last_bytes INTEGER,
   last_packets INTEGER, first_seen REAL, last_seen REAL, PRIMARY KEY(host, addr));
 CREATE TABLE IF NOT EXISTS gateway(host TEXT PRIMARY KEY, version INTEGER, ok INTEGER, detail TEXT, ts REAL);
+CREATE TABLE IF NOT EXISTS enforcers(host TEXT PRIMARY KEY, ts REAL, enforcing INTEGER, rules INTEGER, detail TEXT, version INTEGER);
+CREATE TABLE IF NOT EXISTS blocked(host TEXT, addr TEXT, bytes INTEGER, packets INTEGER, last_bytes INTEGER, last_packets INTEGER,
+  first_seen REAL, last_seen REAL, PRIMARY KEY(host, addr));
 """
 
 
@@ -112,6 +119,7 @@ class App:
         self.store = Store(self.cfg["db"])
         self.rules = load_rules(self.cfg["categories"])
         self.scoper = Scoper.from_config(self.cfg["networks"])
+        self.secure = SecureService(self)
         try:
             self.geo = GeoDB.load(self.cfg["geodb"])
         except (OSError, ValueError) as exc:                  # a corrupt database must not stop the server
@@ -239,22 +247,48 @@ class App:
                 "bytes_known": known, "countries": located,
                 "unlocated": {"destinations": unlocated["destinations"], "edges": unlocated["edges"]} if unlocated else None}
 
+    # --- which robot ------------------------------------------------------------------------------------
+    def robot(self) -> dict:
+        c = self.cfg.get("robot") or {}
+        saved = self.store.meta("robot", "")
+        if saved:
+            try:
+                c = {**c, **json.loads(saved)}
+            except ValueError:
+                pass
+        out = robots.profile(c.get("model", robots.DEFAULT), c.get("label", ""), c.get("serial", ""))
+        out["catalog"] = [{k: r[k] for k in ("id", "maker", "name", "image")} for r in robots.CATALOG.values()]
+        seen = {h["host"]: h for h in self.store.q("SELECT host FROM hosts")}
+        out["computers_seen"] = sorted(seen)
+        return out
+
+    def set_robot(self, body: dict, actor: str) -> dict:
+        v = robots.validate(body)
+        self.store.set_meta("robot", json.dumps(v))
+        self.store.audit(actor, "robot", json.dumps(v))
+        return self.robot()
+
     # --- flows (bytes) ----------------------------------------------------------------------------------
     def ingest_flows(self, host: str, flows: list[dict]) -> int:
+        return self.ingest_counters("flows", host, flows)
+
+    def ingest_counters(self, table: str, host: str, flows: list[dict]) -> int:
+        """Cumulative per-address counters (bytes, packets) into `flows` (sent) or `blocked` (dropped). Resets are detected and added."""
+        assert table in ("flows", "blocked")
         now, n = time.time(), 0
         for f in flows[:20000]:
             try:
                 addr, b, p = str(f["addr"]), int(f["bytes"]), int(f.get("packets", 0))
             except (KeyError, ValueError, TypeError):
                 continue
-            row = self.store.one("SELECT bytes, packets, last_bytes, last_packets FROM flows WHERE host=? AND addr=?", (host, addr))
+            row = self.store.one(f"SELECT bytes, packets, last_bytes, last_packets FROM {table} WHERE host=? AND addr=?", (host, addr))
             if row is None:
-                self.store.x("INSERT INTO flows(host, addr, bytes, packets, last_bytes, last_packets, first_seen, last_seen) "
+                self.store.x(f"INSERT INTO {table}(host, addr, bytes, packets, last_bytes, last_packets, first_seen, last_seen) "
                              "VALUES (?,?,?,?,?,?,?,?)", (host, addr, b, p, b, p, now, now))
             else:
                 db = b - row["last_bytes"] if b >= row["last_bytes"] else b       # counter reset after a rule reload
                 dp = p - row["last_packets"] if p >= row["last_packets"] else p
-                self.store.x("UPDATE flows SET bytes=bytes+?, packets=packets+?, last_bytes=?, last_packets=?, last_seen=? "
+                self.store.x(f"UPDATE {table} SET bytes=bytes+?, packets=packets+?, last_bytes=?, last_packets=?, last_seen=? "
                              "WHERE host=? AND addr=?", (db, dp, b, p, now, host, addr))
             n += 1
         return n
@@ -379,13 +413,13 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    STATIC_TYPES = {".woff2": "font/woff2", ".json": "application/json", ".svg": "image/svg+xml"}
+    STATIC_TYPES = {".woff2": "font/woff2", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png"}
 
     def _static(self, rel: str) -> None:
         """Serve a file from dashboard/fonts or dashboard/map only. No path tricks, no other directories, no other types."""
         parts = rel.split("/")
         ext = os.path.splitext(rel)[1].lower()
-        if (len(parts) != 2 or parts[0] not in ("fonts", "map") or ext not in self.STATIC_TYPES
+        if (len(parts) != 2 or parts[0] not in ("fonts", "map", "flags", "robots") or ext not in self.STATIC_TYPES
                 or not re.fullmatch(r"[A-Za-z0-9._-]+", parts[1]) or parts[1].startswith(".")):
             return self._send(404, {"error": "not found"})
         path = os.path.join(self.app.cfg["static_dir"], parts[0], parts[1])
@@ -394,7 +428,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = fh.read()
         except OSError:
             return self._send(404, {"error": "not found"})
-        return self._send(200, data, self.STATIC_TYPES[ext], {"Cache-Control": "public, max-age=3600"})
+        return self._send(200, data, self.STATIC_TYPES[ext], {"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff",
+                                                          "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"})
 
     # --- routes ----------------------------------------------------------------------------------------
     def do_GET(self) -> None:                 # noqa: N802
@@ -412,6 +447,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(404, {"error": "dashboard not installed"})
             if u.path.startswith("/static/"):
                 return self._static(u.path[len("/static/"):])
+            if u.path == "/api/v1/secure/blocklist":
+                if not self._need("gateway"):
+                    return
+                return self._send(200, a.secure.blocklist())
             if u.path == "/api/v1/gateway/ruleset":
                 if not self._need("gateway"):
                     return
@@ -424,6 +463,22 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if u.path == "/api/v1/summary":
                 return self._send(200, a.summary())
+            if u.path == "/api/v1/robot":
+                return self._send(200, a.robot())
+            if u.path == "/api/v1/secure":
+                if not self._need("admin"):
+                    return
+                return self._send(200, a.secure.status())
+            if u.path in ("/api/v1/report/abroad", "/api/v1/report/abroad.csv"):
+                if not self._need("admin"):
+                    return
+                since = float(qs.get("since", ["86400"])[0])
+                if u.path.endswith(".csv"):
+                    if not a.secure.home_cc():
+                        return self._send(409, {"error": "home country is not set"})
+                    return self._send(200, a.secure.csv(since), "text/csv; charset=utf-8",
+                                      {"Content-Disposition": 'attachment; filename="data-sent-abroad.csv"'})
+                return self._send(200, a.secure.report(since))
             if u.path == "/api/v1/geo/summary":
                 return self._send(200, a.geo_summary(qs))
             if u.path == "/api/v1/edges":
@@ -457,6 +512,15 @@ class Handler(BaseHTTPRequestHandler):
                           (str(b.get("host", "gateway")), int(b.get("version", 0)), 1 if b.get("ok") else 0,
                            str(b.get("detail", ""))[:300], time.time()))
                 return self._send(200, {"ok": True})
+            if u.path == "/api/v1/secure/report":
+                if not self._need("gateway"):
+                    return
+                b = self._body()
+                return self._send(200, a.secure.ingest_report(str(b.get("host", "")), b))
+            if u.path == "/api/v1/secure/lookup":
+                if not self._need("gateway"):
+                    return
+                return self._send(200, {"result": a.secure.lookup(self._body().get("ips", []))})
             if u.path == "/api/v1/gateway/flows":
                 if not self._need("gateway"):
                     return
@@ -490,6 +554,15 @@ class Handler(BaseHTTPRequestHandler):
                 if not self._need("admin"):
                     return
                 return self._send(200, self.app.set_policy(self._body(), "admin"))
+            if u.path == "/api/v1/robot":
+                if not self._need("admin"):
+                    return
+                return self._send(200, self.app.set_robot(self._body(), "admin"))
+            if u.path == "/api/v1/secure":
+                if not self._need("admin"):
+                    return
+                self.app.secure.set_state(self._body(), "admin")
+                return self._send(200, self.app.secure.status())
             return self._send(404, {"error": "not found"})
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             return self._send(400, {"error": str(exc)})

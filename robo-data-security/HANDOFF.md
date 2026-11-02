@@ -515,3 +515,15 @@ weaken sections 4 and 6.3.
 - Aztarna (robot exposure scanner): https://securityaffairs.com/80395/security/aztarna-scanning-vulnerable-robots.html
 - Alias Robotics CAI: https://github.com/aliasrobotics/cai
 - nftables wiki (sets, dynamic sets with counters, atomic replace): https://wiki.nftables.org/
+
+### 5.8 Secure data, report, robot profile (added 2026-11-02)
+- **Home** is the United States (`"home": {"country": "US", ...}` in `server.json`). Foreign = an internet destination whose country code differs from home; unlocated addresses are never blocked.
+- **Secure data** (dashboard card, `GET/PUT /api/v1/secure`): blocks foreign destinations through a per-computer enforcer (`robosec/enforcer.py`, iptables chain `ROBOSEC_SECURE`).
+  Durations 1 h / 8 h / until off, "Keep these working" categories (default remote-access, dns, time-sync), **Reopen** to undo. The card says honestly when no enforcer is running and which computers are not protected.
+  Install steps and undo: `deploy/ENFORCER.md` (root, human go). Server side logic: `robosec/secure.py`.
+- **Report** (`GET /api/v1/report/abroad[.csv]`, dashboard section "Data sent abroad", Download CSV, Print report): who the robot connected to outside home, by country, owner, program, computer, bytes sent and blocked, status.
+  It shows where and to whom, not what was sent. Bytes are a dash until an enforcer or the gateway counts them.
+- **Robot profile** (`GET/PUT /api/v1/robot`, banner at the top, `robosec/robots.py`): AgiBot X2 Ultra, AgiBot A3, Unitree G1; pictures in `dashboard/robots/` are renders of the models in NVIDIA/soma-retargeter (licenses in that folder; `tools/render_robots.py`).
+  Computers and roles are only listed for the X2 Ultra; for the others the banner shows whatever computers have reported.
+- Flags are circle-flags (MIT) in `dashboard/flags/`, used as decorative images next to country names.
+- Tests: `tests/test_secure.py`, `test_enforcer.py`, `test_enforcer_integration.py` (real iptables in a user+net namespace), `test_robot.py`. Whole suite: 143 tests.

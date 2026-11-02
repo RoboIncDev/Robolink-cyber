@@ -197,7 +197,7 @@ dialog legend,.lg{font:500 var(--t-1)/1.2 var(--mono);letter-spacing:.08em;text-
 @media print{
   :root,:root[data-theme]{--bg:#fff;--panel:#fff;--tx:#000;--tx-2:#333;--line:#999;--hover:transparent}
   body{padding:0;background:#fff;color:#000}
-  header,#login,#strip,#robot,#secure,#mapsec,#leavesec,#compsec,#alsec,#consec,footer,.noprint,.toast{display:none!important}
+  header,#login,#strip,#robot,#secure,#mapsec,#findsec,#devsec,#leavesec,#compsec,#alsec,#consec,footer,.noprint,.toast{display:none!important}
   .wrap>#app{display:block!important}
   .pr-only{display:block}
   .tablewrap{max-height:none!important;overflow:visible;border:0}
@@ -286,6 +286,12 @@ footer a{color:var(--blue)}
 
     <section id="secure" class="secure" aria-labelledby="sech" style="margin-top:var(--s-8)"></section>
 
+    <section id="findsec" aria-labelledby="findh" style="margin-top:var(--s-8)">
+      <div class="head"><h2 id="findh">Findings</h2><span class="sub" id="findsub"></span></div>
+      <div class="list" id="finds"></div>
+      <details id="findacc" style="margin-top:var(--s-5)" hidden><summary class="sub" style="cursor:pointer;min-height:44px;display:flex;align-items:center">Accepted findings</summary><div class="list" id="findaccl"></div></details>
+    </section>
+
     <section id="report" aria-labelledby="reph" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="reph">Data sent abroad</h2>
         <div class="tools noprint">
@@ -322,6 +328,11 @@ footer a{color:var(--blue)}
     <section id="compsec" aria-labelledby="comph" style="margin-top:var(--s-8)">
       <div class="head"><h2 id="comph">Computers</h2><span class="sub" id="gwline"></span></div>
       <div class="list" id="hosts"></div>
+    </section>
+
+    <section id="devsec" aria-labelledby="devh" style="margin-top:var(--s-8)">
+      <div class="head"><h2 id="devh">Connected and exposed</h2><span class="sub">Read from each computer every minute. A dash means that computer cannot tell.</span></div>
+      <div class="list" id="devs"></div>
     </section>
 
     <section id="alsec" aria-labelledby="alh" style="margin-top:var(--s-8)">
@@ -457,7 +468,7 @@ async function renderAlerts(){
   if(!open.length){const pct=SUM.learning?Math.min(100,Math.max(0,100*(Date.now()/1000-(ends-SUM.learning_hours*3600))/(SUM.learning_hours*3600))):100;
     $("alerts").innerHTML=`<div class="empty"><b>${SUM.learning?"Learning what is normal.":"No open alerts."}</b>${SUM.learning?"Alerts for new destinations start when the learning window ends.":"A new internet destination will appear here until you acknowledge it."}
       ${SUM.learning?`<div class="bar" style="margin-top:12px" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>`:""}</div>`;return}
-  $("alerts").innerHTML=open.slice(0,50).map(a=>`<div class="item"><div><div class="name">${esc(a.kind==="new_internet_destination"?"New internet destination":a.kind==="inbound_from_internet"?"Inbound connection from the internet":a.kind)}</div>
+  $("alerts").innerHTML=open.slice(0,50).map(a=>`<div class="item"><div><div class="name">${esc(a.kind==="new_internet_destination"?"New internet destination":a.kind==="inbound_from_internet"?"Inbound connection from the internet":ALK[a.kind]||a.kind)}</div>
     <div class="meta"><span class="mono">${esc(a.host)}</span><span class="mono" style="word-break:break-all">${esc(a.detail)}</span><span>${ago(a.ts)}</span></div></div>
     <div class="ctl"><button class="btn small" data-ack="${a.id}">Acknowledge</button></div></div>`).join("");
   $("alerts").querySelectorAll("[data-ack]").forEach(b=>b.onclick=async()=>{await api("/api/v1/alerts/"+b.dataset.ack+"/ack",{method:"POST",body:"{}"});toast("Acknowledged.");refresh()});
@@ -567,7 +578,7 @@ document.querySelectorAll("#metric button").forEach(b=>b.onclick=()=>{if(b.disab
 const flag=(cc,big)=>/^[A-Za-z]{2}$/.test(cc||"")?`<img class="flag${big?" big":""}" src="/static/flags/${cc.toLowerCase()}.svg" alt="" width="${big?32:20}" height="${big?32:20}" loading="lazy" onerror="this.remove()">`:"";
 const the=n=>/^United /.test(n||"")?"the "+n:n;
 const cname=cc=>NAMES[cc]||(SECURE&&SECURE.home_cc===cc&&SECURE.home&&SECURE.home.label)||cc;
-let SECURE=null,ROBOT=null,REPORT=null,RWIN=86400,SDUR=3600,RPICK="";
+let FIND=null,POST=null,SECURE=null,ROBOT=null,REPORT=null,RWIN=86400,SDUR=3600,RPICK="";
 function renderRobot(){
   const r=ROBOT;if(!r)return;const now=Date.now()/1000,seen={};(SUM.hosts||[]).forEach(h=>seen[h.host]=h);
   const names=r.computers.length?r.computers:(r.computers_seen||[]);
@@ -647,16 +658,46 @@ $("r-csv").onclick=async()=>{try{const r=await fetch("/api/v1/report/abroad.csv?
   const u=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=u;a.download="data-sent-abroad.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);toast("CSV downloaded.")}catch(e){toast("Could not download: "+e.message)}};
 
 /* main loop */
+
+const ALK={new_bluetooth_device:"New Bluetooth device",new_usb_device:"New USB device",new_lan_device:"New device on the network"};
+const SEVW={fault:["fault","Act now"],caution:["caution","Review"],info:["plate","Note"]};
+function findItem(f){const[c,w]=SEVW[f.severity]||SEVW.info;
+  return`<div class="item"><div><div class="name">${esc(f.title)}</div><div class="meta"><span style="overflow-wrap:anywhere">${esc(f.detail)}</span></div>${f.fix?`<div class="meta"><span>Fix: ${esc(f.fix)}</span></div>`:""}</div>
+  <div class="ctl"><span class="chip ${c}"><i></i>${w}</span><button class="btn small" data-fid="${esc(f.id)}" data-acc="${f.accepted?0:1}">${f.accepted?"Reopen":"Known, fine"}</button></div></div>`}
+function renderFindings(){
+  const all=FIND.findings,open=all.filter(f=>!f.accepted),acc=all.filter(f=>f.accepted);
+  $("findsub").textContent=open.length?open.length+" to look at":"";
+  $("finds").innerHTML=open.length?open.map(findItem).join(""):`<div class="empty"><b>Nothing to look at.</b>${SUM.hosts&&SUM.hosts.length?"No computer is showing an open port, Bluetooth setting or gap that needs a decision.":"No computer has reported yet."}</div>`;
+  $("findacc").hidden=!acc.length;$("findaccl").innerHTML=acc.map(findItem).join("");
+  document.querySelectorAll("[data-fid]").forEach(b=>b.onclick=async()=>{await api("/api/v1/findings/accept",{method:"POST",body:JSON.stringify({id:b.dataset.fid,accept:b.dataset.acc==="1"})});toast(b.dataset.acc==="1"?"Marked as known.":"Reopened.");refresh()})}
+const REACH={all:"every network, including Wi-Fi",lan:"the Wi-Fi network",vpn:"the VPN",robot:"the robot's own network",local:"this computer only"};
+function devRow(label,val){return`<div style="display:grid;grid-template-columns:9.5rem minmax(0,1fr);gap:var(--s-5);padding:var(--s-3) 0"><span class="sub">${label}</span><span style="overflow-wrap:anywhere">${val}</span></div>`}
+const list=(a,f,none)=>a==null?DASH:!a.length?none:a.length>8?`${a.length} devices<details><summary class="sub" style="cursor:pointer;min-height:44px;display:flex;align-items:center">Show all</summary>${a.map(f).join("<br>")}</details>`:a.map(f).join("<br>");
+function renderDevices(){
+  const hs=POST.hosts,fs=POST.first_seen;
+  if(!hs.length){$("devs").innerHTML=`<div class="empty"><b>No readings yet.</b>Each agent sends its open ports and connected devices once a minute.</div>`;return}
+  const nw=(h,k,key)=>{const t=fs[h+"|"+k+"|"+key];return t&&t-(POST.baseline[h]||t)>30&&Date.now()/1000-t<86400?` <span class="chip caution"><i></i>New ${ago(t)}</span>`:""};
+  $("devs").innerHTML=hs.map(h=>{
+    const ex=(h.listeners||[]).filter(l=>["all","lan"].includes(l.reach)),bt=h.bluetooth,c=bt&&bt.controller,w=h.wifi;
+    const btv=bt==null?"No Bluetooth adapter":(c?`${c.powered?"On":"Off"}${c.discoverable?", visible to anyone nearby":""}${c.pairable?", accepts new pairings":""}`:DASH)
+      +(bt&&bt.paired?"<br>Paired: "+(bt.paired.length?bt.paired.map(d=>esc(d.name||d.mac)+(bt.connected&&bt.connected.some(x=>x.mac===d.mac)?" (connected)":"")+nw(h.host,"bluetooth",d.mac)).join(", "):"none"):"");
+    return`<div class="item" style="grid-template-columns:minmax(0,1fr)"><div><div class="name mono">${esc(h.host)} <span class="sub">${ago(h.ts)}</span></div>
+      ${devRow("Open to others",ex.length?ex.map(l=>`<span class="mono">${l.port}/${l.proto}</span> ${l.comm?esc(l.comm)+" ":""}<span class="sub">(${REACH[l.reach]})</span>`).join("<br>"):h.listeners?"Nothing reaches beyond the robot's own network":DASH)}
+      ${devRow("Bluetooth",btv)}
+      ${devRow("USB",list(h.usb,d=>esc(d.product||d.id)+` <span class="sub mono">${esc(d.id)}</span>`+nw(h.host,"usb",d.bus+"/"+d.id),"Nothing plugged in"))}
+      ${devRow("Network neighbours",list(h.neighbors,d=>`<span class="mono">${esc(d.ip)}</span> <span class="sub mono">${esc(d.mac)} ${esc(d.dev)}</span>${d.random?' <span class="sub">(private address)</span>':""}`+nw(h.host,"lan",d.mac),"None seen"))}
+      ${devRow("Wi-Fi",w?`${esc(w.ssid||DASH)}${w.signal_dbm!=null?` <span class="sub mono">${w.signal_dbm} dBm</span>`:""}${w.bssid?` <span class="sub mono">${esc(w.bssid)}</span>`:""}`:"Not used on this computer")}
+      ${devRow("Logged in",list(h.sessions,s=>`${esc(s.user)} <span class="sub">${esc(s.tty)}${s.from?" from "+esc(s.from):""}</span>`,"Nobody"))}</div></div>`}).join("")}
 async function refresh(){
   try{
-    const [s,c,g,sec,rob,rep]=await Promise.all([api("/api/v1/summary"),api("/api/v1/categories"),api("/api/v1/geo/summary"),api("/api/v1/secure"),api("/api/v1/robot"),api("/api/v1/report/abroad?since="+RWIN)]);
-    SECURE=sec;ROBOT=rob;REPORT=rep;
+    const [s,c,g,sec,rob,rep,fnd,pst]=await Promise.all([api("/api/v1/summary"),api("/api/v1/categories"),api("/api/v1/geo/summary"),api("/api/v1/secure"),api("/api/v1/robot"),api("/api/v1/report/abroad?since="+RWIN),api("/api/v1/findings"),api("/api/v1/posture")]);
+    FIND=fnd;POST=pst;SECURE=sec;ROBOT=rob;REPORT=rep;
     SUM=s;CATS=c.categories;GEO=g;GEOW=WIN?await api("/api/v1/geo/summary?since="+WIN):g;POLICY=s.policy;if(!DRAFT||!dirty())DRAFT=JSON.parse(JSON.stringify(POLICY));
     LASTOK=Date.now();
     const sel=$("f-host"),cur=sel.value;sel.innerHTML='<option value="">All</option>'+(s.hosts||[]).map(h=>`<option>${esc(h.host)}</option>`).join("");sel.value=cur;
     const enf=POLICY.mode==="enforce";chip($("modechip"),enf?"caution":"plate",enf?"Enforcing":"Observing");$("stopenf").hidden=!enf;
     chip($("live"),"nominal","Live",true);
-    renderRobot();renderStrip();if(!dirty())renderCats();renderHosts();await ensureMap();renderSecure();renderReport();paintMap();renderPanel();renderCountryTable();await renderAlerts();await renderEdges();
+    renderRobot();renderStrip();if(!dirty())renderCats();renderHosts();await ensureMap();renderSecure();renderFindings();renderDevices();renderReport();paintMap();renderPanel();renderCountryTable();await renderAlerts();await renderEdges();
     $("attr").innerHTML=GEO&&GEO.available?`<a href="${esc(GEO.attribution_url)}" rel="noopener noreferrer" target="_blank">IP Geolocation by DB-IP</a> · release ${esc(GEO.release||DASH)}`:"Locations are unavailable: no geo database is installed.";
   }catch(e){
     if(e.auth){$("disconnect").onclick();$("loginerr").textContent="The token was not accepted.";return}

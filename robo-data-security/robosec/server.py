@@ -26,7 +26,7 @@ from .geodb import ATTRIBUTION, ATTRIBUTION_URL, GeoDB
 from .netscope import Scoper
 from .nftrender import DEFAULT_POLICY, header_info, render, validate_policy
 from .secure import SecureService
-from . import robots
+from . import findings, robots
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 2 * 1024 * 1024
@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS flows(host TEXT, addr TEXT, bytes INTEGER, packets IN
   last_packets INTEGER, first_seen REAL, last_seen REAL, PRIMARY KEY(host, addr));
 CREATE TABLE IF NOT EXISTS gateway(host TEXT PRIMARY KEY, version INTEGER, ok INTEGER, detail TEXT, ts REAL);
 CREATE TABLE IF NOT EXISTS enforcers(host TEXT PRIMARY KEY, ts REAL, enforcing INTEGER, rules INTEGER, detail TEXT, version INTEGER);
+CREATE TABLE IF NOT EXISTS posture(host TEXT PRIMARY KEY, ts REAL, body TEXT);
+CREATE TABLE IF NOT EXISTS devices(host TEXT, kind TEXT, key TEXT, label TEXT, first_seen REAL, last_seen REAL, PRIMARY KEY(host, kind, key));
 CREATE TABLE IF NOT EXISTS blocked(host TEXT, addr TEXT, bytes INTEGER, packets INTEGER, last_bytes INTEGER, last_packets INTEGER,
   first_seen REAL, last_seen REAL, PRIMARY KEY(host, addr));
 """
@@ -179,7 +181,81 @@ class App:
                              "org=CASE WHEN ? != '' THEN ? ELSE org END WHERE id=?",
                              (edge["n"], edge["last"], edge["category"], edge["scope"], edge["comm"], edge["unit"],
                               edge["cmd"], g["cc"], g["asn"], g["asn"], g["org"], g["org"], row["id"]))
+        if isinstance(rep.get("posture"), dict):
+            new_alerts += self.ingest_posture(host, rep["posture"], now, learning)
         return {"ok": True, "alerts": new_alerts, "learning": learning}
+
+    # --- ports, devices, findings -----------------------------------------------------------------------
+    DEVICE_ALERTS = {"bluetooth": "new_bluetooth_device", "usb": "new_usb_device", "lan": "new_lan_device"}
+
+    def ingest_posture(self, host: str, body: dict, now: float, learning: bool) -> int:
+        """Keep the latest reading, and remember every device ever seen so a new one can raise an alert (not during learning)."""
+        body = {k: body.get(k) for k in ("listeners", "bluetooth", "usb", "neighbors", "wifi", "sessions")}
+        text = json.dumps(body)
+        if len(text) > 262144:
+            raise ValueError("posture too large")
+        baseline = self.store.one("SELECT 1 FROM posture WHERE host=?", (host,)) is None      # the first reading from a computer is its baseline
+        self.store.x("INSERT INTO posture(host, ts, body) VALUES (?,?,?) ON CONFLICT(host) DO UPDATE SET ts=excluded.ts, body=excluded.body",
+                     (host, now, text))
+        seen: list[tuple[str, str, str]] = []
+        bt = body["bluetooth"] if isinstance(body["bluetooth"], dict) else {}
+        for d in (bt.get("paired") or []) + (bt.get("connected") or []):
+            seen.append(("bluetooth", str(d.get("mac", ""))[:32], str(d.get("name", ""))[:60]))
+        for d in body["usb"] or []:
+            seen.append(("usb", f"{d.get('bus', '')}/{d.get('id', '')}"[:48], f"{d.get('vendor', '')} {d.get('product', '')}".strip()[:80]))
+        for d in body["neighbors"] or []:
+            seen.append(("lan", str(d.get("mac", ""))[:32], str(d.get("ip", ""))[:48]))
+        n = 0
+        for kind, key, label in seen:
+            if not key:
+                continue
+            row = self.store.one("SELECT 1 FROM devices WHERE host=? AND kind=? AND key=?", (host, kind, key))
+            if row is None:
+                self.store.x("INSERT INTO devices(host, kind, key, label, first_seen, last_seen) VALUES (?,?,?,?,?,?)", (host, kind, key, label, now, now))
+                if not learning and not baseline:
+                    self.store.x("INSERT INTO alerts(ts, host, kind, detail, edge_id) VALUES (?,?,?,?,NULL)",
+                                 (now, host, self.DEVICE_ALERTS[kind], f"{key} {label}".strip()))
+                    n += 1
+            else:
+                self.store.x("UPDATE devices SET last_seen=?, label=? WHERE host=? AND kind=? AND key=?", (now, label, host, kind, key))
+        return n
+
+    def posture_view(self) -> dict:
+        now = time.time()
+        rows = self.store.q("SELECT host, ts, body FROM posture ORDER BY host")
+        devs = self.store.q("SELECT host, kind, key, first_seen FROM devices")
+        first = {(d["host"], d["kind"], d["key"]): d["first_seen"] for d in devs}
+        base: dict[str, float] = {}
+        for d in devs:                                                    # a computer's baseline is its first reading
+            base[d["host"]] = min(base.get(d["host"], d["first_seen"]), d["first_seen"])
+        return {"now": now, "baseline": base, "hosts": [{"host": r["host"], "ts": r["ts"], **json.loads(r["body"])} for r in rows],
+                "first_seen": {f"{h}|{k}|{key}": t for (h, k, key), t in first.items()}}
+
+    def accepted(self) -> set[str]:
+        try:
+            return set(json.loads(self.store.meta("accepted_findings", "[]")))
+        except ValueError:
+            return set()
+
+    def findings(self) -> dict:
+        s, now = self.store, time.time()
+        hosts = s.q("SELECT host, last_seen, stats FROM hosts ORDER BY host")
+        for h in hosts:
+            h["stats"] = json.loads(h["stats"] or "{}")
+        posts = {r["host"]: {"ts": r["ts"], "body": json.loads(r["body"])} for r in s.q("SELECT host, ts, body FROM posture")}
+        enf = {r["host"]: r for r in s.q("SELECT host, ts FROM enforcers")}
+        items = findings.evaluate(posts, hosts, enf, now, self.accepted(), enforcer_stale_s=self.cfg["enforcer_stale_s"])
+        return {"now": now, "findings": items, "open": sum(1 for f in items if not f["accepted"])}
+
+    def accept_finding(self, fid: str, accept: bool, actor: str) -> dict:
+        fid = str(fid)[:200]
+        if not any(f["id"] == fid for f in self.findings()["findings"]):
+            raise ValueError("unknown finding")
+        cur = self.accepted()
+        cur.add(fid) if accept else cur.discard(fid)
+        self.store.set_meta("accepted_findings", json.dumps(sorted(cur)))
+        self.store.audit(actor, "finding_accepted" if accept else "finding_reopened", fid)
+        return self.findings()
 
     def recategorize(self) -> int:
         n = 0
@@ -465,6 +541,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, a.summary())
             if u.path == "/api/v1/robot":
                 return self._send(200, a.robot())
+            if u.path == "/api/v1/posture":
+                return self._send(200, a.posture_view())
+            if u.path == "/api/v1/findings":
+                return self._send(200, a.findings())
             if u.path == "/api/v1/secure":
                 if not self._need("admin"):
                     return
@@ -533,6 +613,12 @@ class Handler(BaseHTTPRequestHandler):
                 a.store.x("UPDATE alerts SET acked=1 WHERE id=?", (aid,))
                 a.store.audit("admin", "alert_ack", str(aid))
                 return self._send(200, {"ok": True})
+            if u.path == "/api/v1/findings/accept":
+                b = self._body()
+                try:
+                    return self._send(200, a.accept_finding(b.get("id", ""), bool(b.get("accept", True)), "admin"))
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
             if u.path == "/api/v1/regeocode":
                 return self._send(200, {"ok": True, "changed": a.regeocode()})
             if u.path == "/api/v1/recategorize":

@@ -18,6 +18,7 @@ import urllib.error
 import urllib.request
 
 from . import __version__
+from . import posture
 from .netscope import Scoper
 from .procnet import (TCP_ESTABLISHED, TCP_LISTEN, TCP_SYN_SENT, inode_owner_map, proc_info,
                       read_sockets)
@@ -32,6 +33,7 @@ DEFAULTS = {
     "spool_dir": "/var/lib/robosec",
     "spool_max_bytes": 20 * 1024 * 1024,
     "max_edges_per_report": 500,
+    "posture_s": 60.0,              # how often the open-ports / devices / Bluetooth reading is taken and sent (0 = never)
     "nice": 10,
     "networks": {},                 # overrides for robot_nets / lan_nets / vpn_nets
 }
@@ -195,10 +197,12 @@ class Reporter:
         except OSError:
             pass
 
-    def send(self, edges: list[dict], stats: dict) -> bool:
+    def send(self, edges: list[dict], stats: dict, posture_reading: dict | None = None) -> bool:
         self.seq += 1
         payload = {"host": self.cfg["host"], "agent_version": __version__, "ts": time.time(),
                    "seq": self.seq, "edges": edges, "stats": stats}
+        if posture_reading is not None:
+            payload["posture"] = posture_reading
         if self.post(payload):
             self.replay_spool()
             return True
@@ -221,7 +225,7 @@ def run(cfg: dict, once: bool = False) -> int:
         print()
         return 0
     reporter = Reporter(cfg)
-    last_flush = 0.0
+    last_flush = last_posture = 0.0
     cpu0 = time.process_time()
     while True:
         t = time.time()
@@ -230,9 +234,16 @@ def run(cfg: dict, once: bool = False) -> int:
         if t - last_flush >= cfg["flush_s"]:
             stats.update(interval_s=cfg["interval_s"], cpu_s=round(time.process_time() - cpu0, 2),
                          edges_total=len(table.edges), pending=table.pending())
+            reading = None
+            if cfg["posture_s"] and t - last_posture >= cfg["posture_s"]:
+                try:
+                    reading, last_posture = posture.collect(scoper), t
+                except Exception:                                       # noqa: BLE001  a failed reading must never stop the sampler
+                    reading = None
             while True:
                 batch = table.drain(cfg["max_edges_per_report"])
-                reporter.send(batch, stats)
+                reporter.send(batch, stats, reading)
+                reading = None
                 if not table.pending():
                     break
             last_flush = t

@@ -56,7 +56,7 @@ def evaluate(postures: dict[str, dict], hosts: list[dict], enforcers: dict[str, 
         for r in ports:
             if r["proto"] == "tcp" and r["port"] in RISKY_PORTS:
                 name, fix = RISKY_PORTS[r["port"]]
-                where = "every network this computer is on, including Wi-Fi" if r["reach"] == "all" else "the Wi-Fi network"
+                where = "every network this computer is on" if r["reach"] == "all" else "the Wi-Fi network"
                 out.append(_f(f"listen:{host}:{r['proto']}:{r['port']}", "caution", host, f"{host}: {name} (port {r['port']}) is open to {where}",
                               f"Anyone who can reach {host} on {where} can try to connect." + (f" Program: {r['comm']}." if r.get("comm") else ""), fix))
             else:

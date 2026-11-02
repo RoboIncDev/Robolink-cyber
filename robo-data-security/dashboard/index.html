@@ -670,7 +670,7 @@ function renderFindings(){
   $("finds").innerHTML=open.length?open.map(findItem).join(""):`<div class="empty"><b>Nothing to look at.</b>${SUM.hosts&&SUM.hosts.length?"No computer is showing an open port, Bluetooth setting or gap that needs a decision.":"No computer has reported yet."}</div>`;
   $("findacc").hidden=!acc.length;$("findaccl").innerHTML=acc.map(findItem).join("");
   document.querySelectorAll("[data-fid]").forEach(b=>b.onclick=async()=>{await api("/api/v1/findings/accept",{method:"POST",body:JSON.stringify({id:b.dataset.fid,accept:b.dataset.acc==="1"})});toast(b.dataset.acc==="1"?"Marked as known.":"Reopened.");refresh()})}
-const REACH={all:"every network, including Wi-Fi",lan:"the Wi-Fi network",vpn:"the VPN",robot:"the robot's own network",local:"this computer only"};
+const REACH={all:"every network",lan:"the Wi-Fi network",vpn:"the VPN",robot:"the robot's own network",local:"this computer only"};
 function devRow(label,val){return`<div style="display:grid;grid-template-columns:9.5rem minmax(0,1fr);gap:var(--s-5);padding:var(--s-3) 0"><span class="sub">${label}</span><span style="overflow-wrap:anywhere">${val}</span></div>`}
 const list=(a,f,none)=>a==null?DASH:!a.length?none:a.length>8?`${a.length} devices<details><summary class="sub" style="cursor:pointer;min-height:44px;display:flex;align-items:center">Show all</summary>${a.map(f).join("<br>")}</details>`:a.map(f).join("<br>");
 function renderDevices(){
@@ -686,7 +686,7 @@ function renderDevices(){
       ${devRow("Bluetooth",btv)}
       ${devRow("USB",list(h.usb,d=>esc(d.product||d.id)+` <span class="sub mono">${esc(d.id)}</span>`+nw(h.host,"usb",d.bus+"/"+d.id),"Nothing plugged in"))}
       ${devRow("Network neighbours",list(h.neighbors,d=>`<span class="mono">${esc(d.ip)}</span> <span class="sub mono">${esc(d.mac)} ${esc(d.dev)}</span>${d.random?' <span class="sub">(private address)</span>':""}`+nw(h.host,"lan",d.mac),"None seen"))}
-      ${devRow("Wi-Fi",w?`${esc(w.ssid||DASH)}${w.signal_dbm!=null?` <span class="sub mono">${w.signal_dbm} dBm</span>`:""}${w.bssid?` <span class="sub mono">${esc(w.bssid)}</span>`:""}`:"Not used on this computer")}
+      ${devRow("Wi-Fi",w?`${esc(w.ssid||DASH)}${w.signal_dbm!=null?` <span class="sub mono">${w.signal_dbm} dBm</span>`:""}${w.bssid?` <span class="sub mono">${esc(w.bssid)}</span>`:""}`:"Not reported")}
       ${devRow("Logged in",list(h.sessions,s=>`${esc(s.user)} <span class="sub">${esc(s.tty)}${s.from?" from "+esc(s.from):""}</span>`,"Nobody"))}</div></div>`}).join("")}
 async function refresh(){
   try{

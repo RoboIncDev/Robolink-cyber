@@ -527,3 +527,10 @@ weaken sections 4 and 6.3.
   Computers and roles are only listed for the X2 Ultra; for the others the banner shows whatever computers have reported.
 - Flags are circle-flags (MIT) in `dashboard/flags/`, used as decorative images next to country names.
 - Tests: `tests/test_secure.py`, `test_enforcer.py`, `test_enforcer_integration.py` (real iptables in a user+net namespace), `test_robot.py`. Whole suite: 143 tests.
+
+### 5.9 Findings, exposure readings, security report (2026-11-02)
+- `robosec/posture.py` (agent, every 60 s, read-only, no root): listening ports and reach, Bluetooth (`bluetoothctl`), USB, ARP neighbours, Wi-Fi, logins. Unknown is `None`, shown as a dash.
+- `robosec/findings.py` and `securityreport.py` (server): findings with accept/reopen, and the plain-language security report (JSON and Markdown). New devices alert only after a computer's first reading (its baseline).
+- Dashboard sections: Findings and "Make security report", "Connected and exposed". Full tour with screenshots: `docs/DASHBOARD.md` (regenerate with `tools/take_screenshots.py`).
+- PC2 server now listens on `0.0.0.0:8750` (so the Wi-Fi address works); set `"listen": "10.0.1.41"` to go back to the robot network only. Plain HTTP: trusted networks only.
+- All three computers rebooted on 2026-11-02 and every transient unit stopped; PC2 `~/robosec/start.sh`, PC1/PC3 repeat the `systemd-run` commands (PC3 enforcer: `deploy/ENFORCER.md`; agents: capabilities `CAP_SYS_PTRACE CAP_DAC_READ_SEARCH`, `CPUQuota=15%`, PC1 `CPUAffinity=0 1 2 3`).
